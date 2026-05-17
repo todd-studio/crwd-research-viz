@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>George Group — Complete Ownership Map</title>
+<style>
+  :root {
+    --ink: #0b1624;
+    --ink-2: #1a2a40;
+    --paper: #f7f4ec;
+    --paper-2: #ffffff;
+    --rule: #d6ccb2;
+    --accent: #9a1b1b;
+    --accent-2: #2b5d3b;
+    --accent-3: #8a6d1f;
+    --highlight: #f4e7c2;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); font-family: var(--serif); line-height: 1.55; }
+  body { padding: 32px 24px 96px; max-width: 1280px; margin: 0 auto; }
+  header.doc-header { border-bottom: 3px double var(--ink); padding-bottom: 20px; margin-bottom: 32px; }
+  header.doc-header h1 { font-family: var(--serif); font-size: 36px; margin: 0 0 6px; letter-spacing: 0.5px; }
+  header.doc-header .subtitle { font-style: italic; color: var(--ink-2); font-size: 17px; margin-bottom: 12px; }
+  header.doc-header .meta { display: flex; flex-wrap: wrap; gap: 16px; font-family: var(--sans); font-size: 12px; color: var(--ink-2); text-transform: uppercase; letter-spacing: 1px; }
+  header.doc-header .meta span { padding: 4px 10px; background: var(--paper-2); border: 1px solid var(--rule); }
+  h2 { font-family: var(--serif); font-size: 24px; margin: 48px 0 6px; padding-bottom: 6px; border-bottom: 1px solid var(--rule); }
+  h2 .num { color: var(--accent); font-family: var(--mono); font-size: 18px; margin-right: 10px; }
+  h3 { font-family: var(--serif); font-size: 18px; margin: 24px 0 6px; color: var(--ink-2); }
+  p { margin: 8px 0 16px; }
+  .lede { font-size: 15.5px; color: var(--ink-2); }
+  section { margin-bottom: 12px; }
+  .callout { background: var(--paper-2); border-left: 4px solid var(--accent); padding: 14px 18px; margin: 16px 0; font-family: var(--sans); font-size: 14px; }
+  .callout strong { color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; background: var(--paper-2); margin: 12px 0 20px; }
+  th, td { border: 1px solid var(--rule); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--ink); color: var(--paper); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+  tbody tr:nth-child(even) { background: #faf7ee; }
+  td.num, th.num { font-family: var(--mono); text-align: right; white-space: nowrap; }
+  .chart-wrap { background: var(--paper-2); border: 1px solid var(--rule); padding: 16px; margin: 16px 0 28px; overflow-x: auto; }
+  .chart-title { font-family: var(--sans); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-2); margin-bottom: 10px; }
+  .chart-note { font-family: var(--sans); font-size: 11px; color: var(--ink-2); font-style: italic; margin-top: 6px; }
+  svg text { font-family: var(--sans); }
+  .node-rect { stroke: var(--ink); stroke-width: 1.5; }
+  .node-ian   { fill: #f7d4a8; }
+  .node-brett { fill: #d4e8d4; }
+  .node-susan { fill: #e8d4e8; }
+  .node-chris { fill: #d4e4f4; }
+  .node-trust { fill: #f0e4ce; stroke-dasharray: 4 2; }
+  .node-op    { fill: var(--paper-2); }
+  .node-spv   { fill: #faf0d4; }
+  .node-brand { fill: #ede6d1; }
+  .node-fx    { fill: #ffe9e9; }
+  .node-de    { fill: #d5e1f0; }
+  .edge { fill: none; stroke: var(--ink); stroke-width: 1.2; }
+  .edge-dash { stroke-dasharray: 5 3; }
+  .edge-beneficial { stroke: var(--accent); stroke-width: 2; }
+  .edge-label { font-size: 10px; fill: var(--ink-2); font-family: var(--mono); }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; font-family: var(--sans); font-size: 11px; margin: 6px 0 10px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; padding: 2px 8px; border: 1px solid var(--rule); background: var(--paper-2); }
+  .swatch { width: 14px; height: 14px; border: 1px solid var(--ink); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  .pill { display: inline-block; padding: 2px 8px; font-size: 11px; font-family: var(--mono); background: var(--highlight); border: 1px solid var(--accent-3); border-radius: 10px; }
+  .pill-red { background: #f5d9d9; border-color: var(--accent); color: var(--accent); }
+  .pill-green { background: #d9ecd9; border-color: var(--accent-2); color: var(--accent-2); }
+  .footer { margin-top: 64px; padding-top: 20px; border-top: 3px double var(--ink); font-family: var(--sans); font-size: 11px; color: var(--ink-2); text-align: center; }
+  details { background: var(--paper-2); border: 1px solid var(--rule); padding: 10px 14px; margin: 10px 0; }
+  details summary { cursor: pointer; font-family: var(--sans); font-size: 13px; font-weight: 600; }
+  code { font-family: var(--mono); font-size: 12px; background: var(--highlight); padding: 1px 4px; }
+</style>
+</head>
+<body>
+
+<header class="doc-header">
+  <h1>The George Group — Complete Ownership Map</h1>
+  <div class="subtitle">Ian Douglas George &amp; the global licence-plate empire — top to bottom, every entity, every director</div>
+  <div class="meta">
+    <span>Compiled 17 Apr 2026</span>
+    <span>Source: ASIC Rounds 1 &amp; 2 + public web</span>
+    <span>Classification: Commercial sensitive</span>
+    <span>Companion to: ian_george_dossier.md</span>
+  </div>
+</header>
+
+<section>
+  <p class="lede">This document is the visual companion to the Ian George dossier. It maps, in strict top-to-bottom hierarchy, every known legal entity and beneficial-ownership relationship in the George Group — from Ian personally, through trustee structures, Australian operating entities, offshore SPVs, and state-scheme brand vehicles, to the global uGroup footprint centred on Erich Utsch in Germany. Every tree is drawn from primary ASIC extracts cross-referenced with public filings and industry press.</p>
+  <div class="callout">
+    <strong>How to read this:</strong> Solid black lines are direct shareholdings. Dashed lines indicate trust-held shareholdings ("NOT beneficially held" on the ASIC filing — a trustee holds the legal shares for an undisclosed family trust). Red lines indicate beneficial control traced through the trustee. Colour-coding: <span class="pill" style="background:#f7d4a8">Ian</span> <span class="pill" style="background:#e8d4e8">Susannah</span> <span class="pill" style="background:#d4e8d4">Brett</span> <span class="pill" style="background:#d4e4f4">Frazer</span> <span class="pill" style="background:#f0e4ce">Trustee</span> <span class="pill" style="background:#faf0d4">SPV</span> <span class="pill" style="background:#ffffff">Operating</span> <span class="pill" style="background:#ede6d1">Brand/scheme</span> <span class="pill" style="background:#d5e1f0">Offshore</span>
+  </div>
+</section>
+
+<!-- ========================= SECTION 1: FAMILY TREE ========================= -->
+<h2><span class="num">§1</span>Family Tree</h2>
+<p>Three generations visible in corporate records. The unnamed earlier generation (Ian's father) is attested only by Ian's own 2021 interview quote. Ian's spouse is absent from all ASIC and public records — a deliberate privacy choice consistent with the family's posture. A possible third George child is inferred from the "fifth-generation" language used by Susannah but cannot be confirmed in corporate filings.</p>
+
+<div class="chart-wrap">
+  <div class="chart-title">Figure 1 — The George Family Tree</div>
+  <svg viewBox="0 0 1200 440" width="100%" preserveAspectRatio="xMidYMid meet">
+    <!-- Generation 1: Ian's father -->
+    <rect x="480" y="20" width="240" height="54" class="node-rect node-op"/>
+    <text x="600" y="42" text-anchor="middle" font-size="13" font-weight="600">Unnamed George (Ian's father)</text>
+    <text x="600" y="60" text-anchor="middle" font-size="11" font-style="italic">Sign &amp; vehicle-ID business, Bundaberg (1960s–80s)</text>
+
+    <!-- edge to Ian -->
+    <path d="M 600 74 L 600 110" class="edge"/>
+
+    <!-- Generation 2: Ian -->
+    <rect x="420" y="110" width="360" height="70" class="node-rect node-ian"/>
+    <text x="600" y="134" text-anchor="middle" font-size="15" font-weight="700">IAN DOUGLAS GEORGE</text>
+    <text x="600" y="152" text-anchor="middle" font-size="12">b. 24 Jun 1950 · Bundaberg QLD · age 75</text>
+    <text x="600" y="168" text-anchor="middle" font-size="11" font-style="italic">Unit 8, 81 Moray St, New Farm · Mooloolaba (Smart Steps 2025)</text>
+
+    <!-- spouse placeholder -->
+    <rect x="820" y="120" width="180" height="50" class="node-rect" style="fill:#eee; stroke-dasharray:3 3;"/>
+    <text x="910" y="140" text-anchor="middle" font-size="12" font-weight="600">Spouse</text>
+    <text x="910" y="156" text-anchor="middle" font-size="10" font-style="italic">Not in public records</text>
+    <path d="M 780 145 L 820 145" class="edge edge-dash"/>
+
+    <!-- edges to children -->
+    <path d="M 600 180 L 600 210 L 300 210 L 300 250" class="edge"/>
+    <path d="M 600 180 L 600 210 L 900 210 L 900 250" class="edge"/>
+    <path d="M 600 180 L 600 250" class="edge edge-dash"/>
+
+    <!-- Susannah -->
+    <rect x="180" y="250" width="240" height="120" class="node-rect node-susan"/>
+    <text x="300" y="272" text-anchor="middle" font-size="14" font-weight="700">SUSANNAH GEORGE</text>
+    <text x="300" y="290" text-anchor="middle" font-size="11">(DOB not in public records)</text>
+    <text x="300" y="308" text-anchor="middle" font-size="11">CEO · Plate Impressions Pty Ltd</text>
+    <text x="300" y="324" text-anchor="middle" font-size="11">Founder · The Urban List</text>
+    <text x="300" y="342" text-anchor="middle" font-size="10" font-style="italic">BGGS → QUT → UCLA → HBS exec ed</text>
+    <text x="300" y="360" text-anchor="middle" font-size="10" font-style="italic">"5th-gen entrepreneur, Bundaberg"</text>
+
+    <!-- Possible third child -->
+    <rect x="510" y="250" width="180" height="80" class="node-rect" style="fill:#f5f5f5; stroke-dasharray:4 3;"/>
+    <text x="600" y="272" text-anchor="middle" font-size="12" font-weight="600">Possible 3rd child</text>
+    <text x="600" y="290" text-anchor="middle" font-size="10" font-style="italic">Inferred from</text>
+    <text x="600" y="304" text-anchor="middle" font-size="10" font-style="italic">"fifth-generation" language</text>
+    <text x="600" y="320" text-anchor="middle" font-size="10" font-style="italic">No ASIC/web evidence</text>
+
+    <!-- Brett -->
+    <rect x="780" y="250" width="240" height="120" class="node-rect node-brett"/>
+    <text x="900" y="272" text-anchor="middle" font-size="14" font-weight="700">BRETT STEPHEN GEORGE</text>
+    <text x="900" y="290" text-anchor="middle" font-size="11">b. 25 Feb 1979 · Perth WA · age 47</text>
+    <text x="900" y="308" text-anchor="middle" font-size="11">4 Kallatina Dr, Iluka WA</text>
+    <text x="900" y="326" text-anchor="middle" font-size="11">Future Patriot Group (master)</text>
+    <text x="900" y="344" text-anchor="middle" font-size="11">Handel Group · Plungie</text>
+    <text x="900" y="362" text-anchor="middle" font-size="10" font-style="italic">Zero plates-side directorships</text>
+
+    <!-- Non-family: Frazer -->
+    <rect x="880" y="390" width="260" height="36" class="node-rect node-chris"/>
+    <text x="1010" y="410" text-anchor="middle" font-size="12" font-weight="700">CHRISTINE A. F. FRAZER</text>
+    <text x="1010" y="422" text-anchor="middle" font-size="10" font-style="italic">b. 8 Nov 1968 · Colombo · CFO/Sec ~2000–</text>
+
+    <path d="M 600 168 C 880 168, 1010 310, 1010 390" class="edge edge-beneficial edge-dash"/>
+    <text x="1040" y="280" class="edge-label" transform="rotate(65 1040 280)">26-yr operational partner</text>
+  </svg>
+  <div class="chart-note">Spouse absence and the possible third child are known unknowns — the "5th-gen Bundaberg" language suggests a wider family context than corporate records reveal.</div>
+</div>
+
+<table>
+  <thead><tr><th style="width:22%">Person</th><th style="width:12%">DOB</th><th style="width:22%">Address</th><th style="width:22%">Primary role</th><th>Signal</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Ian Douglas George</strong></td><td>24 Jun 1950</td><td>Unit 8, 81 Moray St, New Farm QLD</td><td>Founder / Chairman<br>All master vehicles</td><td>Age 75 — succession horizon &lt;3 yrs</td></tr>
+    <tr><td><strong>Brett Stephen George</strong></td><td>25 Feb 1979</td><td>4 Kallatina Dr, Iluka WA</td><td>Future Patriot Group<br>(infrastructure, not plates)</td><td>Parallel empire — clean separation</td></tr>
+    <tr><td><strong>Susannah George</strong></td><td>Not in records</td><td>Not in records</td><td>CEO Plate Impressions<br>+ Founder Urban List</td><td>Urban List is her primary energy</td></tr>
+    <tr><td><strong>Christine Frazer</strong></td><td>8 Nov 1968</td><td>Not in records</td><td>CFO / Sec across group</td><td>Age 57 — own retirement horizon</td></tr>
+  </tbody>
+</table>
+
+<!-- ========================= SECTION 2: AU MASTER HIERARCHY ========================= -->
+<h2><span class="num">§2</span>Australian Master Hierarchy</h2>
+<p>The Australian side of the empire is deliberately split into a handful of master holdings (<em>Harringe</em>, <em>George Industries</em>, <em>QANA</em>) that do not operate but hold everything else. Operating entities sit below them in a second layer. Property and IP are typically held in yet another layer so that operational-entity termination cannot cascade into asset loss. Ian and Christine Frazer appear on virtually every master and operating vehicle.</p>
+
+<div class="chart-wrap">
+  <div class="chart-title">Figure 2 — Australian Master Hierarchy (Plates + Tech + Property)</div>
+  <svg viewBox="0 0 1280 720" width="100%" preserveAspectRatio="xMidYMid meet">
+    <!-- Top Layer: Ian -->
+    <rect x="540" y="10" width="200" height="52" class="node-rect node-ian"/>
+    <text x="640" y="32" text-anchor="middle" font-size="13" font-weight="700">IAN DOUGLAS GEORGE</text>
+    <text x="640" y="48" text-anchor="middle" font-size="11">Director on all master vehicles</text>
+
+    <!-- Layer 1: Master holdings -->
+    <text x="640" y="86" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace" fill="#1a2a40">LAYER 1 — MASTER HOLDINGS</text>
+
+    <rect x="100" y="100" width="200" height="56" class="node-rect node-spv"/>
+    <text x="200" y="124" text-anchor="middle" font-size="13" font-weight="700">Harringe Pty Ltd</text>
+    <text x="200" y="142" text-anchor="middle" font-size="10" font-style="italic">Master AU family holding</text>
+
+    <rect x="360" y="100" width="200" height="56" class="node-rect node-spv"/>
+    <text x="460" y="124" text-anchor="middle" font-size="13" font-weight="700">George Industries P/L</text>
+    <text x="460" y="142" text-anchor="middle" font-size="10" font-style="italic">Alternative master holding</text>
+
+    <rect x="620" y="100" width="200" height="56" class="node-rect node-spv"/>
+    <text x="720" y="124" text-anchor="middle" font-size="13" font-weight="700">QANA Investments</text>
+    <text x="720" y="142" text-anchor="middle" font-size="10" font-style="italic">Property + equity stakes</text>
+
+    <rect x="880" y="100" width="220" height="56" class="node-rect node-spv"/>
+    <text x="990" y="124" text-anchor="middle" font-size="13" font-weight="700">Smart Steps Pty Ltd</text>
+    <text x="990" y="142" text-anchor="middle" font-size="10" font-style="italic">ACN 638 119 221 · Mooloolaba 2025</text>
+
+    <!-- Ian edges to L1 -->
+    <path d="M 640 62 L 640 80 L 200 80 L 200 100" class="edge"/>
+    <path d="M 640 62 L 640 80 L 460 80 L 460 100" class="edge"/>
+    <path d="M 640 62 L 640 100" class="edge"/>
+    <path d="M 640 62 L 640 80 L 990 80 L 990 100" class="edge"/>
+
+    <!-- Layer 2: Operating -->
+    <text x="640" y="200" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace" fill="#1a2a40">LAYER 2 — OPERATING (PLATES + TECH)</text>
+
+    <rect x="20" y="220" width="220" height="70" class="node-rect node-op"/>
+    <text x="130" y="240" text-anchor="middle" font-size="13" font-weight="700">Plate Impressions P/L</text>
+    <text x="130" y="256" text-anchor="middle" font-size="10">ACN 070 345 762</text>
+    <text x="130" y="270" text-anchor="middle" font-size="10">Inc. 28 Aug 1995</text>
+    <text x="130" y="284" text-anchor="middle" font-size="10" font-style="italic">Bundaberg stamping plant · Susannah CEO</text>
+
+    <rect x="260" y="220" width="180" height="70" class="node-rect node-op"/>
+    <text x="350" y="240" text-anchor="middle" font-size="13" font-weight="700">Plate Holdings P/L</text>
+    <text x="350" y="258" text-anchor="middle" font-size="10" font-style="italic">Holdco for IP &amp; state SPVs</text>
+
+    <rect x="460" y="220" width="180" height="70" class="node-rect node-op"/>
+    <text x="550" y="240" text-anchor="middle" font-size="13" font-weight="700">Plato Properties P/L</text>
+    <text x="550" y="258" text-anchor="middle" font-size="10" font-style="italic">Real estate — Bundaberg factory</text>
+
+    <rect x="660" y="220" width="180" height="70" class="node-rect node-op"/>
+    <text x="750" y="240" text-anchor="middle" font-size="13" font-weight="700">Plato Industries P/L</text>
+    <text x="750" y="258" text-anchor="middle" font-size="10" font-style="italic">Secondary industrial holdco</text>
+
+    <rect x="860" y="220" width="180" height="70" class="node-rect node-op"/>
+    <text x="950" y="240" text-anchor="middle" font-size="13" font-weight="700">Licensys Pty Ltd</text>
+    <text x="950" y="256" text-anchor="middle" font-size="10">ACN 088 288 569 · 11 Aug 1999</text>
+    <text x="950" y="270" text-anchor="middle" font-size="10" font-style="italic">Scheme tech / interACT</text>
+
+    <rect x="1060" y="220" width="210" height="70" class="node-rect node-op"/>
+    <text x="1165" y="240" text-anchor="middle" font-size="13" font-weight="700">Licensys Australasia P/L</text>
+    <text x="1165" y="258" text-anchor="middle" font-size="10" font-style="italic">Regional operations wrapper</text>
+
+    <rect x="460" y="310" width="200" height="60" class="node-rect node-op"/>
+    <text x="560" y="332" text-anchor="middle" font-size="13" font-weight="700">Licensys Properties P/L</text>
+    <text x="560" y="350" text-anchor="middle" font-size="10" font-style="italic">Real estate for Licensys</text>
+
+    <!-- Layer 1 to Layer 2 edges -->
+    <path d="M 200 156 L 200 200 L 130 200 L 130 220" class="edge"/>
+    <path d="M 200 156 L 200 200 L 350 200 L 350 220" class="edge"/>
+    <path d="M 460 156 L 460 200 L 550 200 L 550 220" class="edge"/>
+    <path d="M 460 156 L 460 200 L 750 200 L 750 220" class="edge"/>
+    <path d="M 720 156 L 720 200 L 950 200 L 950 220" class="edge"/>
+    <path d="M 720 156 L 720 200 L 1165 200 L 1165 220" class="edge"/>
+    <path d="M 720 156 L 720 200 L 560 200 L 560 310" class="edge edge-dash"/>
+
+    <!-- Layer 3: state scheme SPVs -->
+    <text x="640" y="405" text-anchor="middle" font-size="11" font-family="ui-monospace,monospace" fill="#1a2a40">LAYER 3 — STATE SCHEME SPVs / BRAND VEHICLES</text>
+
+    <rect x="40" y="420" width="160" height="60" class="node-rect node-brand"/>
+    <text x="120" y="440" text-anchor="middle" font-size="13" font-weight="700">myPlates</text>
+    <text x="120" y="456" text-anchor="middle" font-size="10" font-style="italic">NSW flagship (2014–)</text>
+    <text x="120" y="470" text-anchor="middle" font-size="10">TfNSW contract</text>
+
+    <rect x="220" y="420" width="160" height="60" class="node-rect node-brand"/>
+    <text x="300" y="440" text-anchor="middle" font-size="13" font-weight="700">PPQ</text>
+    <text x="300" y="456" text-anchor="middle" font-size="10" font-style="italic">Personalised Plates QLD</text>
+    <text x="300" y="470" text-anchor="middle" font-size="10">TMR contract</text>
+
+    <rect x="400" y="420" width="160" height="60" class="node-rect node-brand"/>
+    <text x="480" y="440" text-anchor="middle" font-size="13" font-weight="700">TasPlates</text>
+    <text x="480" y="456" text-anchor="middle" font-size="10" font-style="italic">Tasmania scheme</text>
+
+    <rect x="580" y="420" width="160" height="60" class="node-rect node-brand"/>
+    <text x="660" y="440" text-anchor="middle" font-size="13" font-weight="700">VPlates</text>
+    <text x="660" y="456" text-anchor="middle" font-size="10" font-style="italic">Victoria (concession)</text>
+    <text x="660" y="470" text-anchor="middle" font-size="10">VicRoads CP deed</text>
+
+    <rect x="760" y="420" width="160" height="60" class="node-rect node-brand"/>
+    <text x="840" y="440" text-anchor="middle" font-size="13" font-weight="700">KiwiPlates</text>
+    <text x="840" y="456" text-anchor="middle" font-size="10" font-style="italic">New Zealand</text>
+    <text x="840" y="470" text-anchor="middle" font-size="10">Waka Kotahi contract</text>
+
+    <rect x="940" y="420" width="160" height="60" class="node-rect node-brand"/>
+    <text x="1020" y="440" text-anchor="middle" font-size="13" font-weight="700">PlatesWA</text>
+    <text x="1020" y="456" text-anchor="middle" font-size="10" font-style="italic">Western Australia</text>
+
+    <rect x="1120" y="420" width="140" height="60" class="node-rect node-brand"/>
+    <text x="1190" y="440" text-anchor="middle" font-size="13" font-weight="700">EzyPlates</text>
+    <text x="1190" y="456" text-anchor="middle" font-size="10" font-style="italic">Ancillary brand</text>
+
+    <!-- Layer 2 to Layer 3 edges (stylised) -->
+    <path d="M 350 290 L 350 395 L 120 395 L 120 420" class="edge"/>
+    <path d="M 350 290 L 350 395 L 300 395 L 300 420" class="edge"/>
+    <path d="M 350 290 L 350 395 L 480 395 L 480 420" class="edge"/>
+    <path d="M 350 290 L 350 395 L 660 395 L 660 420" class="edge"/>
+    <path d="M 350 290 L 350 395 L 840 395 L 840 420" class="edge"/>
+    <path d="M 350 290 L 350 395 L 1020 395 L 1020 420" class="edge"/>
+    <path d="M 350 290 L 350 395 L 1190 395 L 1190 420" class="edge"/>
+
+    <!-- Legend / note at bottom -->
+    <rect x="40" y="540" width="1200" height="160" fill="#faf7ee" stroke="#d6ccb2"/>
+    <text x="60" y="562" font-size="12" font-weight="700">Key observations</text>
+    <text x="60" y="584" font-size="11">· Plate Impressions (1995) pre-dates Licensys (1999) — stamping began before the tech layer was formalised.</text>
+    <text x="60" y="604" font-size="11">· Master holdings (Harringe / George Industries / QANA) are small Pty Ltds exempt from public account lodgement — financial opacity is deliberate.</text>
+    <text x="60" y="624" font-size="11">· Each state scheme brand is a separate SPV so that contract termination in one jurisdiction does not cascade.</text>
+    <text x="60" y="644" font-size="11">· Property holdings (Plato Properties, Licensys Properties) insulate operating entities from real-estate risk and vice-versa.</text>
+    <text x="60" y="664" font-size="11">· Smart Steps (Ian's personal services vehicle) re-registered to Mooloolaba in 2025 — the succession tell.</text>
+    <text x="60" y="684" font-size="11">· Christine Frazer is named on the master layer AND most operating entities — single-point operational knowledge concentration.</text>
+  </svg>
+</div>
+
+<!-- ========================= SECTION 3: UTSCH SPV STRUCTURE ========================= -->
+<h2><span class="num">§3</span>The Utsch Acquisition SPVs (Global Reach)</h2>
+<p>This is the structural crown jewel — how Ian co-acquired a majority of Erich Utsch AG in 2016. The design uses two Australian SPVs (Avenir Initiative, Wilhelmina Investments), each owned by an Australian trustee "NOT beneficially" — which is the ASIC code-phrase for "the legal shareholder is holding for an undisclosed family trust beneficiary." The trustees are Lachance Pty Ltd and Devonshire Square Pty Ltd. On each trustee, Ian and Christine Frazer are directors. The Eriksson family's parallel Swedish vehicle (Scandector AB) holds a co-equal bloc.</p>
+
+<div class="chart-wrap">
+  <div class="chart-title">Figure 3 — Ian's 2016 Utsch Acquisition — Two-Tier SPV Structure</div>
+  <svg viewBox="0 0 1200 640" width="100%" preserveAspectRatio="xMidYMid meet">
+    <!-- Beneficial owners top -->
+    <rect x="100" y="10" width="260" height="60" class="node-rect node-ian"/>
+    <text x="230" y="34" text-anchor="middle" font-size="13" font-weight="700">IAN GEORGE FAMILY TRUST(S)</text>
+    <text x="230" y="50" text-anchor="middle" font-size="11" font-style="italic">True beneficial owners (undisclosed)</text>
+    <text x="230" y="64" text-anchor="middle" font-size="10">Ian + C. Frazer as trustees</text>
+
+    <rect x="840" y="10" width="260" height="60" class="node-rect" style="fill:#e6eff8;"/>
+    <text x="970" y="34" text-anchor="middle" font-size="13" font-weight="700">ERIKSSON FAMILY (Sweden)</text>
+    <text x="970" y="50" text-anchor="middle" font-size="11" font-style="italic">True beneficial owners</text>
+    <text x="970" y="64" text-anchor="middle" font-size="10">Likely: trust / familjeföretag</text>
+
+    <!-- trustee layer -->
+    <rect x="40" y="120" width="200" height="56" class="node-rect node-trust"/>
+    <text x="140" y="142" text-anchor="middle" font-size="13" font-weight="700">Lachance Pty Ltd</text>
+    <text x="140" y="160" text-anchor="middle" font-size="10" font-style="italic">Trustee · Ian + Frazer dirs</text>
+
+    <rect x="260" y="120" width="200" height="56" class="node-rect node-trust"/>
+    <text x="360" y="142" text-anchor="middle" font-size="13" font-weight="700">Devonshire Square P/L</text>
+    <text x="360" y="160" text-anchor="middle" font-size="10" font-style="italic">Trustee · Ian + Frazer dirs</text>
+
+    <path d="M 200 70 L 140 120" class="edge edge-beneficial edge-dash"/>
+    <path d="M 260 70 L 360 120" class="edge edge-beneficial edge-dash"/>
+    <text x="90" y="95" class="edge-label">controls</text>
+    <text x="380" y="95" class="edge-label">controls</text>
+
+    <!-- SPV layer -->
+    <rect x="40" y="220" width="200" height="60" class="node-rect node-spv"/>
+    <text x="140" y="240" text-anchor="middle" font-size="13" font-weight="700">Avenir Initiative P/L</text>
+    <text x="140" y="256" text-anchor="middle" font-size="11">Australian SPV</text>
+    <text x="140" y="270" text-anchor="middle" font-size="10" font-style="italic">shares held "NOT beneficially" by Lachance</text>
+
+    <rect x="260" y="220" width="200" height="60" class="node-rect node-spv"/>
+    <text x="360" y="240" text-anchor="middle" font-size="13" font-weight="700">Wilhelmina Invts P/L</text>
+    <text x="360" y="256" text-anchor="middle" font-size="11">Australian SPV</text>
+    <text x="360" y="270" text-anchor="middle" font-size="10" font-style="italic">shares held "NOT beneficially" by Devonshire</text>
+
+    <path d="M 140 176 L 140 220" class="edge edge-dash"/>
+    <path d="M 360 176 L 360 220" class="edge edge-dash"/>
+
+    <!-- Scandector -->
+    <rect x="900" y="220" width="200" height="60" class="node-rect" style="fill:#e6eff8;"/>
+    <text x="1000" y="240" text-anchor="middle" font-size="13" font-weight="700">Scandector AB</text>
+    <text x="1000" y="256" text-anchor="middle" font-size="11">Swedish holding company</text>
+    <text x="1000" y="270" text-anchor="middle" font-size="10" font-style="italic">Eriksson family vehicle</text>
+    <path d="M 970 70 L 1000 220" class="edge edge-beneficial edge-dash"/>
+
+    <!-- Utsch box -->
+    <rect x="300" y="340" width="600" height="90" class="node-rect node-de"/>
+    <text x="600" y="364" text-anchor="middle" font-size="16" font-weight="700">ERICH UTSCH AG → GmbH (2025)</text>
+    <text x="600" y="384" text-anchor="middle" font-size="12" font-style="italic">Siegen, North Rhine-Westphalia, Germany</text>
+    <text x="600" y="402" text-anchor="middle" font-size="11">Est. 1919 · Fourth-gen family biz until 2016 · Manfred Utsch d. Jun 2021</text>
+    <text x="600" y="420" text-anchor="middle" font-size="11">Conversion to GmbH = reduced disclosure → succession signal</text>
+
+    <path d="M 140 280 L 140 310 L 500 310 L 500 340" class="edge edge-beneficial"/>
+    <text x="250" y="302" class="edge-label" fill="#9a1b1b">~25%</text>
+    <path d="M 360 280 L 360 310 L 600 310 L 600 340" class="edge edge-beneficial"/>
+    <text x="475" y="302" class="edge-label" fill="#9a1b1b">~25%</text>
+    <path d="M 1000 280 L 1000 310 L 700 310 L 700 340" class="edge edge-beneficial"/>
+    <text x="810" y="302" class="edge-label" fill="#9a1b1b">~50%</text>
+
+    <!-- subsidiary row -->
+    <rect x="40" y="480" width="220" height="64" class="node-rect node-de"/>
+    <text x="150" y="500" text-anchor="middle" font-size="12" font-weight="700">Erich Utsch GmbH</text>
+    <text x="150" y="516" text-anchor="middle" font-size="10" font-style="italic">Plate-making equipment &amp;</text>
+    <text x="150" y="530" text-anchor="middle" font-size="10" font-style="italic">raw material to 130+ countries</text>
+
+    <rect x="290" y="480" width="220" height="64" class="node-rect node-de"/>
+    <text x="400" y="500" text-anchor="middle" font-size="12" font-weight="700">JH Tönnjes GmbH</text>
+    <text x="400" y="516" text-anchor="middle" font-size="10" font-style="italic">Delmenhorst, Germany</text>
+    <text x="400" y="530" text-anchor="middle" font-size="10" font-style="italic">Plate manufacturer</text>
+
+    <rect x="540" y="480" width="220" height="64" class="node-rect node-fx"/>
+    <text x="650" y="500" text-anchor="middle" font-size="12" font-weight="700">Waldale Canada</text>
+    <text x="650" y="516" text-anchor="middle" font-size="10" font-style="italic">Amherst, Nova Scotia</text>
+    <text x="650" y="530" text-anchor="middle" font-size="10" font-style="italic">Sold to Utsch by Ian, 2011</text>
+
+    <rect x="790" y="480" width="220" height="64" class="node-rect node-fx"/>
+    <text x="900" y="500" text-anchor="middle" font-size="12" font-weight="700">Waldale USA</text>
+    <text x="900" y="516" text-anchor="middle" font-size="10" font-style="italic">US sister operation</text>
+    <text x="900" y="530" text-anchor="middle" font-size="10" font-style="italic">Sold to Utsch by Ian, 2011</text>
+
+    <path d="M 500 430 L 500 460 L 150 460 L 150 480" class="edge"/>
+    <path d="M 600 430 L 600 460 L 400 460 L 400 480" class="edge"/>
+    <path d="M 700 430 L 700 460 L 650 460 L 650 480" class="edge"/>
+    <path d="M 800 430 L 800 460 L 900 460 L 900 480" class="edge"/>
+
+    <!-- Footnote -->
+    <rect x="40" y="570" width="1120" height="50" fill="#faf7ee" stroke="#d6ccb2"/>
+    <text x="60" y="592" font-size="11" font-weight="700">Why the trustee-in-the-middle structure matters:</text>
+    <text x="60" y="608" font-size="10.5">Shares labelled "NOT BENEFICIALLY HELD" on the ASIC filing = the legal shareholder is a trustee holding for a family trust. The true beneficiary is not on the public record. This is the</text>
+    <text x="60" y="620" font-size="10.5">same signature as pre-2018 Cayman/BVI structures but done domestically using Pty Ltd trustees — deliberately opaque while remaining ASIC-compliant.</text>
+  </svg>
+</div>
+
+<!-- ========================= SECTION 4: BRETT PARALLEL EMPIRE ========================= -->
+<h2><span class="num">§4</span>Brett Stephen George — Parallel Infrastructure Empire</h2>
+<p>Brett's entire corporate footprint sits apart from plates. Future Patriot Group is his master holding; Handel Group and Plungie are his current primary operating assets; a further trail of Patriot-branded utility services and mapping businesses have been incorporated and (in most cases) divested as he moved capital around. This is not a plates succession path — it is a WA-based industrial/infrastructure portfolio with its own logic.</p>
+
+<div class="chart-wrap">
+  <div class="chart-title">Figure 4 — Brett George's Parallel Empire (no plates overlap)</div>
+  <svg viewBox="0 0 1200 520" width="100%" preserveAspectRatio="xMidYMid meet">
+    <rect x="450" y="10" width="300" height="60" class="node-rect node-brett"/>
+    <text x="600" y="34" text-anchor="middle" font-size="14" font-weight="700">BRETT STEPHEN GEORGE</text>
+    <text x="600" y="52" text-anchor="middle" font-size="11">b. 25 Feb 1979 · 4 Kallatina Dr, Iluka WA</text>
+    <text x="600" y="66" text-anchor="middle" font-size="10" font-style="italic">Zero directorships in any Ian-George plates entity</text>
+
+    <rect x="420" y="110" width="360" height="60" class="node-rect node-spv"/>
+    <text x="600" y="134" text-anchor="middle" font-size="14" font-weight="700">Future Patriot Group Pty Ltd</text>
+    <text x="600" y="152" text-anchor="middle" font-size="11" font-style="italic">Brett's master holding company</text>
+    <path d="M 600 70 L 600 110" class="edge"/>
+
+    <!-- primary operating -->
+    <rect x="140" y="220" width="240" height="80" class="node-rect node-op"/>
+    <text x="260" y="244" text-anchor="middle" font-size="14" font-weight="700">Handel Group</text>
+    <text x="260" y="262" text-anchor="middle" font-size="11" font-style="italic">Infrastructure services</text>
+    <text x="260" y="280" text-anchor="middle" font-size="10">7.2M+ shares held by Future Patriot</text>
+    <text x="260" y="294" text-anchor="middle" font-size="10" font-style="italic">Ian has legacy connection; Brett operational</text>
+
+    <rect x="400" y="220" width="240" height="80" class="node-rect node-op"/>
+    <text x="520" y="244" text-anchor="middle" font-size="14" font-weight="700">Plungie</text>
+    <text x="520" y="262" text-anchor="middle" font-size="11" font-style="italic">Pre-cast concrete pools</text>
+    <text x="520" y="280" text-anchor="middle" font-size="10">High-growth brand</text>
+    <text x="520" y="294" text-anchor="middle" font-size="10" font-style="italic">Brett primary driver</text>
+
+    <rect x="660" y="220" width="240" height="80" class="node-rect" style="fill:#f5f5f5;"/>
+    <text x="780" y="244" text-anchor="middle" font-size="13" font-weight="700">Various Utility Entities</text>
+    <text x="780" y="262" text-anchor="middle" font-size="10">Patriot Utility · Patriot Tankers</text>
+    <text x="780" y="276" text-anchor="middle" font-size="10">Patriot Mapping · ABT · Pipe Hawk</text>
+    <text x="780" y="290" text-anchor="middle" font-size="10" font-style="italic">Aus Bulk Transport</text>
+
+    <rect x="920" y="220" width="220" height="80" class="node-rect" style="fill:#eee8d8;"/>
+    <text x="1030" y="244" text-anchor="middle" font-size="12" font-weight="700">(Previously divested)</text>
+    <text x="1030" y="262" text-anchor="middle" font-size="10" font-style="italic">Exit / rolled-up businesses</text>
+    <text x="1030" y="280" text-anchor="middle" font-size="10">Classic WA small-cap</text>
+    <text x="1030" y="294" text-anchor="middle" font-size="10">industrial roll-up pattern</text>
+
+    <path d="M 600 170 L 600 200 L 260 200 L 260 220" class="edge"/>
+    <path d="M 600 170 L 600 200 L 520 200 L 520 220" class="edge"/>
+    <path d="M 600 170 L 600 200 L 780 200 L 780 220" class="edge"/>
+    <path d="M 600 170 L 600 200 L 1030 200 L 1030 220" class="edge edge-dash"/>
+
+    <rect x="40" y="360" width="1120" height="140" fill="#faf7ee" stroke="#d6ccb2"/>
+    <text x="60" y="384" font-size="13" font-weight="700">Strategic implication — Brett is not the plates successor</text>
+    <text x="60" y="408" font-size="11">1. Zero plates directorships means any economic interest is purely beneficial via family trust — he has no operational lever over Licensys/myPlates/Plate Impressions.</text>
+    <text x="60" y="428" font-size="11">2. His geography (Perth) is structurally opposite to Ian's Brisbane/Bundaberg axis.</text>
+    <text x="60" y="448" font-size="11">3. His portfolio appetite is "acquire, industrialise, roll up, sell" — different risk profile to the steady-state scheme business.</text>
+    <text x="60" y="468" font-size="11">4. Ian's succession plan must deal with Susannah (plates-custodial but energy elsewhere) and Brett (actively uninterested in plates) as parallel problems.</text>
+    <text x="60" y="488" font-size="11">5. Most likely resolution: sale or institutional MBO with Frazer's successor running operations. Either creates a window of ownership uncertainty for competitors.</text>
+  </svg>
+</div>
+
+<!-- ========================= SECTION 5: SCHEME OPERATOR MAP AU/NZ ========================= -->
+<h2><span class="num">§5</span>Scheme-Operator Map — Australia &amp; New Zealand</h2>
+<p>The single most strategically important table: which government registry is the counterparty, which brand sits in front of consumers, which entity holds the contract. This is the battlefield for any new plate entrant.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:10%">State/Country</th>
+      <th style="width:18%">Registry owner</th>
+      <th style="width:18%">Scheme brand</th>
+      <th style="width:22%">George-side entity</th>
+      <th style="width:12%">Contract type</th>
+      <th>Competitive access</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>NSW</strong></td>
+      <td>Transport for NSW</td>
+      <td>myPlates</td>
+      <td>Licensys / NSW SPV</td>
+      <td>Scheme operator</td>
+      <td><span class="pill pill-red">Closed</span> Dominant — since 2014</td>
+    </tr>
+    <tr>
+      <td><strong>QLD</strong></td>
+      <td>Dept Transport &amp; Main Roads</td>
+      <td>PPQ (Personalised Plates QLD)</td>
+      <td>Plate Impressions / QLD SPV</td>
+      <td>Scheme operator</td>
+      <td><span class="pill pill-red">Closed</span> Long-standing</td>
+    </tr>
+    <tr>
+      <td><strong>VIC</strong></td>
+      <td>VicRoads</td>
+      <td>VPlates</td>
+      <td>VicRoads CP (concession partner)</td>
+      <td>Concession Deed</td>
+      <td><span class="pill" style="background:#f4e7c2">Concession</span> See <a href="#vic-note">note</a></td>
+    </tr>
+    <tr>
+      <td><strong>TAS</strong></td>
+      <td>Transport Tasmania</td>
+      <td>TasPlates</td>
+      <td>Licensys TAS SPV</td>
+      <td>Scheme operator</td>
+      <td><span class="pill pill-red">Closed</span></td>
+    </tr>
+    <tr>
+      <td><strong>WA</strong></td>
+      <td>DoT WA</td>
+      <td>PlatesWA</td>
+      <td>Licensys WA agency</td>
+      <td>Partial / agency</td>
+      <td><span class="pill" style="background:#f4e7c2">Partial</span> Softer incumbency</td>
+    </tr>
+    <tr>
+      <td><strong>SA</strong></td>
+      <td>DIT (direct)</td>
+      <td><em>no private scheme</em></td>
+      <td><em>— none —</em></td>
+      <td>Direct government</td>
+      <td><span class="pill pill-green">Open</span> Only open Australian state</td>
+    </tr>
+    <tr>
+      <td><strong>NT</strong></td>
+      <td>MVR (direct)</td>
+      <td><em>limited private offering</em></td>
+      <td><em>— minimal —</em></td>
+      <td>Direct government</td>
+      <td><span class="pill pill-green">Open</span> Small volume</td>
+    </tr>
+    <tr>
+      <td><strong>ACT</strong></td>
+      <td>Access Canberra</td>
+      <td><em>limited private offering</em></td>
+      <td><em>— minimal —</em></td>
+      <td>Direct government</td>
+      <td><span class="pill pill-green">Open</span> Small volume</td>
+    </tr>
+    <tr>
+      <td><strong>NZ</strong></td>
+      <td>Waka Kotahi</td>
+      <td>KiwiPlates</td>
+      <td>Licensys NZ entity</td>
+      <td>Scheme operator</td>
+      <td><span class="pill pill-red">Closed</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<p id="vic-note"><strong>VIC note.</strong> Victoria is the operational gateway. The VicRoads Concession Deed formalises VPlates as a concession partner with a 37+ approved-colour-combo catalogue under Approval 202501_07 (Schedule 6). A new entrant with a technical compliance edge (optical-test lab, machine-readability bench, covert IR validation) can engage the VicRoads concession process directly without displacing Licensys's scheme operator role — this is the thread that the Concession_Partnership_Pitch_and_Funding_Strategy doc develops.</p>
+
+<!-- ========================= SECTION 6: uGROUP GLOBAL MAP ========================= -->
+<h2><span class="num">§6</span>Global uGroup Footprint</h2>
+<p><em>uGroup</em> is an umbrella brand, not a legal entity. It covers the bundle of businesses co-owned by Avenir / Wilhelmina / Scandector. The combined reach is global — Utsch equipment is sold into 130+ countries — but beneficial control sits in four identifiable places: Ian George (Australia), the Eriksson family (Sweden), Christine Frazer (operational), and the residual Utsch family interests in Germany.</p>
+
+<div class="chart-wrap">
+  <div class="chart-title">Figure 6 — Global uGroup Footprint</div>
+  <svg viewBox="0 0 1200 560" width="100%" preserveAspectRatio="xMidYMid meet">
+    <rect x="420" y="10" width="360" height="56" class="node-rect" style="fill:#fff3d9;"/>
+    <text x="600" y="34" text-anchor="middle" font-size="15" font-weight="700">uGroup (umbrella brand)</text>
+    <text x="600" y="52" text-anchor="middle" font-size="11" font-style="italic">Not a legal entity — marketing wrapper around the 2016+ consolidation</text>
+
+    <!-- three pillars -->
+    <rect x="40" y="110" width="340" height="80" class="node-rect node-de"/>
+    <text x="210" y="136" text-anchor="middle" font-size="15" font-weight="700">Erich Utsch GmbH (DE)</text>
+    <text x="210" y="154" text-anchor="middle" font-size="11">Siegen · est. 1919 · 4th-gen until 2016</text>
+    <text x="210" y="170" text-anchor="middle" font-size="11" font-style="italic">Plate-making equipment · 130+ countries</text>
+    <text x="210" y="186" text-anchor="middle" font-size="11">+ JH Tönnjes (plates, Delmenhorst)</text>
+
+    <rect x="430" y="110" width="340" height="80" class="node-rect node-op"/>
+    <text x="600" y="136" text-anchor="middle" font-size="15" font-weight="700">Licensys AU/NZ</text>
+    <text x="600" y="154" text-anchor="middle" font-size="11">Bundaberg + Brisbane</text>
+    <text x="600" y="170" text-anchor="middle" font-size="11" font-style="italic">Scheme tech + ops · interACT software</text>
+    <text x="600" y="186" text-anchor="middle" font-size="11">+ Plate Impressions manufacturing</text>
+
+    <rect x="820" y="110" width="340" height="80" class="node-rect node-fx"/>
+    <text x="990" y="136" text-anchor="middle" font-size="15" font-weight="700">Waldale (North America)</text>
+    <text x="990" y="154" text-anchor="middle" font-size="11">Amherst, Nova Scotia + US sister</text>
+    <text x="990" y="170" text-anchor="middle" font-size="11" font-style="italic">Plate manufacture for CA/US market</text>
+    <text x="990" y="186" text-anchor="middle" font-size="11">Ian → Utsch 2011</text>
+
+    <path d="M 600 66 L 210 110" class="edge"/>
+    <path d="M 600 66 L 600 110" class="edge"/>
+    <path d="M 600 66 L 990 110" class="edge"/>
+
+    <!-- Beneficial owners bottom -->
+    <text x="600" y="230" text-anchor="middle" font-size="12" font-family="ui-monospace,monospace" fill="#1a2a40">BENEFICIAL CONTROL (via Avenir / Wilhelmina / Scandector)</text>
+
+    <rect x="40" y="250" width="260" height="70" class="node-rect node-ian"/>
+    <text x="170" y="274" text-anchor="middle" font-size="14" font-weight="700">IAN GEORGE</text>
+    <text x="170" y="292" text-anchor="middle" font-size="11">Australia · ~25% of Utsch</text>
+    <text x="170" y="308" text-anchor="middle" font-size="10" font-style="italic">via Avenir + Wilhelmina SPVs</text>
+
+    <rect x="320" y="250" width="260" height="70" class="node-rect" style="fill:#e6eff8;"/>
+    <text x="450" y="274" text-anchor="middle" font-size="14" font-weight="700">ERIKSSON FAMILY</text>
+    <text x="450" y="292" text-anchor="middle" font-size="11">Sweden · ~50% of Utsch</text>
+    <text x="450" y="308" text-anchor="middle" font-size="10" font-style="italic">via Scandector AB</text>
+
+    <rect x="600" y="250" width="260" height="70" class="node-rect node-chris"/>
+    <text x="730" y="274" text-anchor="middle" font-size="14" font-weight="700">C. A. F. FRAZER</text>
+    <text x="730" y="292" text-anchor="middle" font-size="11">Operational CFO + trustee director</text>
+    <text x="730" y="308" text-anchor="middle" font-size="10" font-style="italic">No direct beneficial interest disclosed</text>
+
+    <rect x="880" y="250" width="260" height="70" class="node-rect node-de"/>
+    <text x="1010" y="274" text-anchor="middle" font-size="14" font-weight="700">RESIDUAL UTSCH FAMILY</text>
+    <text x="1010" y="292" text-anchor="middle" font-size="11">Germany · minority retained</text>
+    <text x="1010" y="308" text-anchor="middle" font-size="10" font-style="italic">Post-Manfred Utsch death Jun 2021</text>
+
+    <path d="M 170 250 L 170 210 L 600 210 L 600 190" class="edge edge-beneficial"/>
+    <path d="M 450 250 L 450 210 L 600 210 L 600 190" class="edge edge-beneficial"/>
+    <path d="M 730 250 L 730 210 L 600 210 L 600 190" class="edge edge-beneficial edge-dash"/>
+    <path d="M 1010 250 L 1010 210 L 600 210 L 600 190" class="edge edge-beneficial"/>
+
+    <!-- Why this matters -->
+    <rect x="40" y="360" width="1120" height="180" fill="#faf7ee" stroke="#d6ccb2"/>
+    <text x="60" y="384" font-size="14" font-weight="700">Why this global footprint creates the government moat in Australia</text>
+    <text x="60" y="410" font-size="11.5">1. Any Australian state tender for a personalised-plate scheme asks bidders for evidence of global manufacturing standards compliance.</text>
+    <text x="60" y="428" font-size="11.5">2. Licensys cites Utsch equipment and Utsch certifications by default — something no pure-Australian entrant can match.</text>
+    <text x="60" y="446" font-size="11.5">3. interACT (the scheme-management software) is used across NSW / QLD / TAS / VIC / NZ — competing against it means either building a parallel platform or</text>
+    <text x="60" y="460" font-size="11.5">   persuading a state registry to tolerate migration risk during a multi-year transition. This is the real barrier, not plate price.</text>
+    <text x="60" y="480" font-size="11.5">4. <strong>However:</strong> none of this helps defend against a manufacturing-only challenger that attacks the VIC concession deed route (which VicRoads runs separately</text>
+    <text x="60" y="494" font-size="11.5">   from the scheme-operator layer) with a technically-differentiated product (custom-fit, integrated bracket, covert IR machine-readability).</text>
+    <text x="60" y="514" font-size="11.5">5. The physical manufacturing layer is therefore the vulnerable layer. The scheme-operator layer is not.</text>
+  </svg>
+</div>
+
+<!-- ========================= SECTION 7: TIMELINE ========================= -->
+<h2><span class="num">§7</span>Timeline — 1950 to 2026</h2>
+<div class="chart-wrap">
+  <div class="chart-title">Figure 7 — Ian George &amp; Group Timeline</div>
+  <svg viewBox="0 0 1200 340" width="100%" preserveAspectRatio="xMidYMid meet">
+    <line x1="60" y1="170" x2="1140" y2="170" stroke="#0b1624" stroke-width="2"/>
+    <!-- tick marks -->
+    <g font-family="ui-monospace,monospace" font-size="10" fill="#1a2a40" text-anchor="middle">
+      <line x1="80"  y1="165" x2="80"  y2="175" stroke="#0b1624"/><text x="80"  y="195">1950</text>
+      <line x1="200" y1="165" x2="200" y2="175" stroke="#0b1624"/><text x="200" y="195">1979</text>
+      <line x1="320" y1="165" x2="320" y2="175" stroke="#0b1624"/><text x="320" y="195">1995</text>
+      <line x1="440" y1="165" x2="440" y2="175" stroke="#0b1624"/><text x="440" y="195">1999</text>
+      <line x1="560" y1="165" x2="560" y2="175" stroke="#0b1624"/><text x="560" y="195">2000</text>
+      <line x1="680" y1="165" x2="680" y2="175" stroke="#0b1624"/><text x="680" y="195">2011</text>
+      <line x1="800" y1="165" x2="800" y2="175" stroke="#0b1624"/><text x="800" y="195">2014</text>
+      <line x1="920" y1="165" x2="920" y2="175" stroke="#0b1624"/><text x="920" y="195">2016</text>
+      <line x1="1020" y1="165" x2="1020" y2="175" stroke="#0b1624"/><text x="1020" y="195">2021</text>
+      <line x1="1100" y1="165" x2="1100" y2="175" stroke="#0b1624"/><text x="1100" y="195">2025-26</text>
+    </g>
+    <!-- Events above line -->
+    <g font-family="Georgia,serif" font-size="11">
+      <line x1="80" y1="170" x2="80" y2="130" stroke="#0b1624" stroke-dasharray="2 2"/>
+      <text x="80" y="120" text-anchor="middle" font-weight="700">Ian born</text>
+      <text x="80" y="106" text-anchor="middle">Bundaberg</text>
+
+      <line x1="200" y1="170" x2="200" y2="140" stroke="#0b1624" stroke-dasharray="2 2"/>
+      <text x="200" y="130" text-anchor="middle" font-weight="700">Brett born</text>
+      <text x="200" y="116" text-anchor="middle">Perth</text>
+
+      <line x1="320" y1="170" x2="320" y2="100" stroke="#0b1624" stroke-dasharray="2 2"/>
+      <text x="320" y="90" text-anchor="middle" font-weight="700">Plate Impressions inc.</text>
+      <text x="320" y="76" text-anchor="middle">28 Aug 1995</text>
+
+      <line x1="440" y1="170" x2="440" y2="130" stroke="#0b1624" stroke-dasharray="2 2"/>
+      <text x="440" y="120" text-anchor="middle" font-weight="700">Licensys inc.</text>
+      <text x="440" y="106" text-anchor="middle">11 Aug 1999</text>
+
+      <line x1="560" y1="170" x2="560" y2="90" stroke="#0b1624" stroke-dasharray="2 2"/>
+      <text x="560" y="80" text-anchor="middle" font-weight="700">Frazer joins</text>
+      <text x="560" y="66" text-anchor="middle">+ Utsch customer rel.</text>
+      <text x="560" y="52" text-anchor="middle" font-style="italic">(operational core assembled)</text>
+
+      <line x1="680" y1="170" x2="680" y2="120" stroke="#0b1624" stroke-dasharray="2 2"/>
+      <text x="680" y="110" text-anchor="middle" font-weight="700">Waldale → Utsch</text>
+      <text x="680" y="96" text-anchor="middle">Canada + USA sold</text>
+    </g>
+    <!-- Events below line -->
+    <g font-family="Georgia,serif" font-size="11">
+      <line x1="800" y1="170" x2="800" y2="220" stroke="#0b1624" stroke-dasharray="2 2"/>
+      <text x="800" y="234" text-anchor="middle" font-weight="700">myPlates NSW launch</text>
+      <text x="800" y="248" text-anchor="middle">2014</text>
+
+      <line x1="920" y1="170" x2="920" y2="240" stroke="#0b1624" stroke-dasharray="2 2"/>
+      <text x="920" y="254" text-anchor="middle" font-weight="700" fill="#9a1b1b">Utsch AG majority acquired</text>
+      <text x="920" y="268" text-anchor="middle">Avenir + Wilhelmina + Scandector</text>
+      <text x="920" y="282" text-anchor="middle" font-style="italic">(global reach moment)</text>
+
+      <line x1="1020" y1="170" x2="1020" y2="220" stroke="#0b1624" stroke-dasharray="2 2"/>
+      <text x="1020" y="234" text-anchor="middle" font-weight="700">Manfred Utsch dies</text>
+      <text x="1020" y="248" text-anchor="middle">Jun 2021</text>
+
+      <line x1="1100" y1="170" x2="1100" y2="220" stroke="#0b1624" stroke-dasharray="2 2"/>
+      <text x="1100" y="234" text-anchor="middle" font-weight="700">AG → GmcH</text>
+      <text x="1100" y="248" text-anchor="middle">+ Smart Steps → Mooloolaba</text>
+      <text x="1100" y="262" text-anchor="middle" font-style="italic" fill="#9a1b1b">(succession signal)</text>
+    </g>
+  </svg>
+</div>
+
+<!-- ========================= SECTION 8: INTERACT MOAT ========================= -->
+<h2><span class="num">§8</span>The interACT Software Moat — and its limits</h2>
+<div class="two-col">
+  <div>
+    <h3>What interACT does</h3>
+    <p>interACT is the compliance/scheme-management platform that sits between each state registry and plate production:</p>
+    <ul>
+      <li>number availability &amp; reservation</li>
+      <li>sensitive-word / offensive-content filtering</li>
+      <li>approval workflow with registry staff</li>
+      <li>production scheduling into Plate Impressions</li>
+      <li>cancellations, transfers, destructions</li>
+      <li>audit trail / reporting to registry</li>
+    </ul>
+    <h3>Why it protects the scheme-operator contracts</h3>
+    <p>Every active Australian state scheme runs on interACT. Replacing Licensys as scheme operator is not a matter of price — it is a multi-year software migration with substantial registry-staff retraining burden. No rational registry wants that risk unless forced.</p>
+  </div>
+  <div>
+    <h3>Where interACT <em>doesn't</em> protect the group</h3>
+    <p>interACT is a scheme-operator layer moat. It does <strong>not</strong> protect:</p>
+    <ul>
+      <li><strong>Manufacturing quality.</strong> A technically superior plate can be sold through the existing Licensys-operated scheme if the manufacturer becomes a concession partner.</li>
+      <li><strong>The VIC concession layer.</strong> VicRoads runs the concession pathway separately from scheme operator — a manufacturing-only entrant can engage directly.</li>
+      <li><strong>Dealer / retail channels.</strong> Fitment-first propositions live outside the scheme-operator flow.</li>
+      <li><strong>Machine-readability upgrades.</strong> Optical-test compliance and covert IR can be offered without touching interACT.</li>
+    </ul>
+    <div class="callout" style="border-left-color: var(--accent-2);">
+      <strong>Strategic read:</strong> Treat interACT as a fortress — do not attack it. Attack the manufacturing layer under the fortress's skirts, via the VIC concession pathway.
+    </div>
+  </div>
+</div>
+
+<!-- ========================= SECTION 9: FINANCIAL FOOTPRINT ========================= -->
+<h2><span class="num">§9</span>Inferred Financial Footprint</h2>
+<p>The group does not publish consolidated accounts. Master entities are small Pty Ltds exempt from lodgement. The estimates below are inferred from industry-press revenue ranges, typical scheme royalty structures, and manufacturing-margin benchmarks — treat as competitive-planning ranges, not audited numbers.</p>
+<table>
+  <thead>
+    <tr><th>Segment</th><th class="num">Inferred revenue (A$)</th><th class="num">EBITDA margin</th><th>Comment</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>myPlates NSW</td><td class="num">60–90M</td><td class="num">30–40%</td><td>Flagship scheme, strongest unit economics</td></tr>
+    <tr><td>PPQ + TasPlates</td><td class="num">20–40M</td><td class="num">30–40%</td><td>Long-tenure contracts</td></tr>
+    <tr><td>VPlates (concession royalty share)</td><td class="num">20–40M</td><td class="num">15–25%</td><td>Lower margin — concession royalty haircut</td></tr>
+    <tr><td>Plate Impressions manufacturing</td><td class="num">40–80M</td><td class="num">15–25%</td><td>Stamping economics</td></tr>
+    <tr><td>Utsch Germany (~25% attributable)</td><td class="num">~70M</td><td class="num">10–15%</td><td>€180–250M group × Ian's ~25% × FX</td></tr>
+    <tr style="background: var(--highlight);"><td><strong>Group attributable to Ian</strong></td><td class="num"><strong>~200–300M</strong></td><td class="num"><strong>~30% blended</strong></td><td><strong>A$50–90M EBITDA — family trust cashflow</strong></td></tr>
+  </tbody>
+</table>
+
+<!-- ========================= SECTION 10: SUCCESSION SIGNALS ========================= -->
+<h2><span class="num">§10</span>Succession Signals Watchlist</h2>
+<table>
+  <thead><tr><th style="width:20%">Signal</th><th style="width:15%">Date</th><th style="width:30%">Mechanism</th><th>Interpretation</th></tr></thead>
+  <tbody>
+    <tr><td>Smart Steps re-registration</td><td>2025</td><td>Address change to Mooloolaba</td><td>Ian personal services vehicle moves to QLD retirement coast</td></tr>
+    <tr><td>Ian residence downsize</td><td>ongoing</td><td>Unit 8, 81 Moray St New Farm</td><td>Apartment rather than family home — mobility</td></tr>
+    <tr><td>Utsch AG → GmbH</td><td>2025</td><td>Corporate form change</td><td>Reduced disclosure regime — flexibility for shareholder changes</td></tr>
+    <tr><td>Susannah's public focus</td><td>ongoing</td><td>The Urban List is her primary profile</td><td>Plates role is custodial, not successional</td></tr>
+    <tr><td>Brett separation</td><td>ongoing</td><td>Zero plates directorships</td><td>Cleanly not the plates successor</td></tr>
+    <tr><td>Frazer age (57)</td><td>—</td><td>Own retirement horizon</td><td>Institutional knowledge cliff if she retires in parallel with Ian</td></tr>
+  </tbody>
+</table>
+
+<!-- ========================= SECTION 11: STRATEGIC IMPLICATIONS ========================= -->
+<h2><span class="num">§11</span>Strategic Implications for a Custom-Fit Plate Venture</h2>
+<div class="callout">
+  <strong>TL;DR:</strong> Don't attack the scheme-operator layer. Attack the manufacturing layer via the VIC concession pathway. Use Ian's 75-year age and the succession-uncertainty window as timing leverage — get entrenched before ownership is resolved.
+</div>
+<ol>
+  <li><strong>Scheme operator = untouchable in 1 product generation.</strong> interACT moat + 25yr incumbency + global standards reference weight via Utsch = unwinnable tender fight.</li>
+  <li><strong>Manufacturing = vulnerable.</strong> Plate Impressions is a Bundaberg stamping factory with mid-teens-to-twenty-percent margins and a family-custodial CEO whose primary energy is elsewhere. Custom-fit + integrated bracket + covert IR machine-readability is exactly the vector a stamping-era factory does not have organisational DNA for.</li>
+  <li><strong>VIC concession pathway = the foot in the door.</strong> VicRoads runs concession approval separately from scheme operator. A technically-differentiated product can enter via Approval 202501_07 or its successor, without ever fighting Licensys for the scheme-operator seat.</li>
+  <li><strong>Timing window = 2026–2029.</strong> 75 is not tomorrow but is within ~3 years of a likely succession inflection. Reach dealer-channel scale and retail visibility before new ownership is resolved = entrenched presence by the time they have to decide whether to fight or absorb.</li>
+  <li><strong>Counterparty = Christine Frazer, not Ian directly.</strong> If the venture ever needs to approach the group (for supply, licence, or acquisition conversation), she is the operational decision-maker. Approach her professionally, not Ian socially.</li>
+  <li><strong>Watch for Utsch GmbH register changes.</strong> Any Utsch shareholder movement will cascade through Avenir/Wilhelmina → Australian beneficial control → the group's strategic posture. This is a tell for when the whole structure may come into play.</li>
+</ol>
+
+<!-- ========================= APPENDIX ========================= -->
+<h2><span class="num">§A</span>Appendix — Quick Reference Tables</h2>
+
+<h3>A.1 Known ACNs</h3>
+<table>
+  <thead><tr><th style="width:25%">ACN</th><th>Entity</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td class="num">070 345 762</td><td>Plate Impressions Pty Ltd</td><td>Manufacturer — Bundaberg</td></tr>
+    <tr><td class="num">088 288 569</td><td>Licensys Pty Ltd</td><td>Scheme technology core</td></tr>
+    <tr><td class="num">638 119 221</td><td>Smart Steps Pty Ltd</td><td>Ian personal services — succession signal</td></tr>
+    <tr><td>Round 1/2 ext.</td><td>Harringe Pty Ltd</td><td>Master holding</td></tr>
+    <tr><td>Round 1/2 ext.</td><td>George Industries Pty Ltd</td><td>Alt master holding</td></tr>
+    <tr><td>Round 1/2 ext.</td><td>QANA Investments Pty Ltd</td><td>Investment holding</td></tr>
+    <tr><td>Round 1/2 ext.</td><td>Plate Holdings / Plato Properties / Plato Industries / Licensys Australasia / Licensys Properties</td><td>Operating / property wrappers</td></tr>
+    <tr><td>Round 2 ext.</td><td>Avenir Initiative Pty Ltd</td><td>Utsch SPV</td></tr>
+    <tr><td>Round 2 ext.</td><td>Wilhelmina Investments Pty Ltd</td><td>Utsch SPV</td></tr>
+    <tr><td>Round 2 ext.</td><td>Lachance Pty Ltd</td><td>Trustee for Avenir</td></tr>
+    <tr><td>Round 2 ext.</td><td>Devonshire Square Pty Ltd</td><td>Trustee for Wilhelmina</td></tr>
+  </tbody>
+</table>
+
+<h3>A.2 Key Dates</h3>
+<table>
+  <thead><tr><th style="width:20%">Date</th><th>Event</th></tr></thead>
+  <tbody>
+    <tr><td>24 Jun 1950</td><td>Ian Douglas George born, Bundaberg QLD</td></tr>
+    <tr><td>25 Feb 1979</td><td>Brett Stephen George born, Perth WA</td></tr>
+    <tr><td>28 Aug 1995</td><td>Plate Impressions Pty Ltd incorporated</td></tr>
+    <tr><td>11 Aug 1999</td><td>Licensys Pty Ltd incorporated</td></tr>
+    <tr><td>~2000</td><td>Christine Frazer joins; first Utsch customer relationship begins</td></tr>
+    <tr><td>2011</td><td>Waldale Canada + USA sold to Erich Utsch AG</td></tr>
+    <tr><td>2014</td><td>myPlates NSW scheme launched</td></tr>
+    <tr><td>2016</td><td>Utsch AG majority acquired via Avenir + Wilhelmina + Scandector AB</td></tr>
+    <tr><td>Jun 2021</td><td>Manfred Utsch dies (age 85)</td></tr>
+    <tr><td>2025</td><td>Utsch AG converts to GmbH; Smart Steps re-registers to Mooloolaba</td></tr>
+    <tr><td>17 Apr 2026</td><td>This ownership map compiled</td></tr>
+  </tbody>
+</table>
+
+<h3>A.3 People — one-line summaries</h3>
+<table>
+  <thead><tr><th style="width:20%">Person</th><th style="width:15%">Role</th><th>One-liner</th></tr></thead>
+  <tbody>
+    <tr><td>Ian Douglas George</td><td>Founder / Chairman</td><td>75-yo 5th-gen Bundaberg; 40-yr plate career; co-acquired global Utsch 2016; succession signals visible</td></tr>
+    <tr><td>Brett S. George</td><td>Parallel empire (Future Patriot)</td><td>Perth-based infrastructure roll-up operator; zero plates directorships; not the successor</td></tr>
+    <tr><td>Susannah George</td><td>CEO Plate Impressions + Urban List founder</td><td>BGGS→QUT→UCLA→HBS; custodial of plates, energy in media; may monetise Urban List rather than return to plates</td></tr>
+    <tr><td>Christine A. F. Frazer</td><td>CFO / Secretary (group)</td><td>Colombo-born, joined 2000, on every filing; operational backbone; age 57 — own retirement horizon</td></tr>
+    <tr><td>Eriksson family</td><td>Swedish co-investor (Scandector AB)</td><td>~50% Utsch co-owner; parallel SPV structure to Ian's; not active in Australia</td></tr>
+    <tr><td>Manfred Utsch</td><td>Former CEO Utsch AG (d. Jun 2021)</td><td>Figurehead of the 4th-gen family company sold to Avenir/Wilhelmina/Scandector in 2016</td></tr>
+  </tbody>
+</table>
+
+<div class="footer">
+  <div>George Group — Complete Ownership Map · compiled 17 Apr 2026 · companion to <code>ian_george_dossier.md</code></div>
+  <div>Source files: <code>licensys_intel_report_v6.pdf</code> + ASIC Rounds 1 &amp; 2 + Companies House UK + German HRB + public web</div>
+  <div style="margin-top:6px; font-style:italic;">Todd to add primary extracts to <code>/Plates/04_Reference/</code> as they are obtained — this document updates against them.</div>
+</div>
+
+</body>
+</html>

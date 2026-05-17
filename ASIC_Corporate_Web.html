@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ASIC Corporate Web — AU Plate Contract Map</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: #0e1117;
+    color: #e6edf3;
+    overflow: hidden;
+  }
+  #app { display: grid; grid-template-columns: 340px 1fr 380px; height: 100vh; }
+  .panel {
+    background: #161b22;
+    border-right: 1px solid #30363d;
+    padding: 16px;
+    overflow-y: auto;
+  }
+  .panel.right { border-right: none; border-left: 1px solid #30363d; }
+  h1 { font-size: 16px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 12px; margin: 18px 0 8px; color: #7d8590; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+  h3 { font-size: 14px; margin: 8px 0 4px; }
+  .subtle { color: #7d8590; font-size: 12px; }
+  .stat { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; border-bottom: 1px dashed #21262d; }
+  .stat b { font-variant-numeric: tabular-nums; }
+  input[type="text"] {
+    width: 100%; padding: 8px 10px; background: #0d1117; border: 1px solid #30363d;
+    color: #e6edf3; border-radius: 6px; font-size: 13px; margin: 4px 0;
+  }
+  input[type="text"]:focus { outline: none; border-color: #58a6ff; }
+  .legend-row { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 3px 0; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .square { width: 11px; height: 11px; flex-shrink: 0; }
+  .diamond { width: 10px; height: 10px; flex-shrink: 0; transform: rotate(45deg); }
+  .line { width: 24px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+  .line.dashed { background-image: repeating-linear-gradient(to right, currentColor 0 4px, transparent 4px 8px); background-color: transparent !important; height: 3px; }
+  .line.thick { height: 4px; }
+  .filter-toggle { font-size: 12px; padding: 3px 0; display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+  .filter-toggle input { margin: 0; }
+  #graph { background: #0e1117; cursor: grab; }
+  #graph:active { cursor: grabbing; }
+  .node circle, .node rect, .node polygon { stroke: #0e1117; stroke-width: 1.5px; cursor: pointer; transition: stroke-width 0.15s; }
+  .node:hover circle, .node:hover rect, .node:hover polygon { stroke: #58a6ff; stroke-width: 2.5px; }
+  .node.selected circle, .node.selected rect, .node.selected polygon { stroke: #ffbf00; stroke-width: 3px; }
+  .node text { fill: #e6edf3; font-size: 10px; pointer-events: none; text-shadow: 0 0 3px #0e1117, 0 0 3px #0e1117; }
+  .link { stroke-opacity: 0.55; fill: none; }
+  .link.faded { stroke-opacity: 0.08; }
+  .link.highlighted { stroke-opacity: 1; stroke-width: 3px; }
+  .link.trades_as { stroke-dasharray: 5 4; }
+  .link.principal_of { stroke-dasharray: 2 3; }
+  .link.concession_current { stroke-width: 2.5px; }
+  .link.manufacturing_current { stroke-width: 2px; }
+  .arrow { fill: #6e7681; }
+  .arrow.highlighted { fill: #58a6ff; }
+  .detail-row { margin: 4px 0; font-size: 13px; }
+  .detail-row .k { color: #7d8590; margin-right: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .edge-list { font-size: 12px; max-height: 45vh; overflow-y: auto; margin-top: 6px; }
+  .edge-item { padding: 4px 6px; border-left: 3px solid #30363d; margin: 3px 0; background: #0d1117; border-radius: 0 4px 4px 0; }
+  .edge-item.director_current { border-left-color: #f778ba; }
+  .edge-item.director_previous { border-left-color: #8957e5; }
+  .edge-item.shareholder_current { border-left-color: #3fb950; }
+  .edge-item.shareholder_previous { border-left-color: #2da44e; opacity: 0.6; }
+  .edge-item.uhc_current, .edge-item.uhc_previous { border-left-color: #f0883e; }
+  .edge-item.secretary_current { border-left-color: #79c0ff; }
+  .edge-item.secretary_previous { border-left-color: #388bfd; opacity: 0.6; }
+  .edge-item.trades_as { border-left-color: #ffd166; }
+  .edge-item.concession_current { border-left-color: #e04aa8; }
+  .edge-item.manufacturing_current { border-left-color: #1fab9b; }
+  .edge-item.principal_of { border-left-color: #4ae0e0; }
+  .edge-item .lbl { font-weight: 500; cursor: pointer; }
+  .edge-item .lbl:hover { color: #58a6ff; }
+  .edge-item .meta { color: #7d8590; font-size: 11px; }
+  .muted { opacity: 0.4; transition: opacity 0.15s; }
+  .callout { background: #1f2937; border-left: 3px solid #58a6ff; padding: 8px 10px; border-radius: 0 4px 4px 0; margin: 6px 0; font-size: 12px; line-height: 1.45; }
+  .callout.warn { background: #3a2a1e; border-left-color: #ffa657; }
+  .callout.conc { background: #2a1a2e; border-left-color: #e04aa8; }
+  .callout.mfg { background: #162a28; border-left-color: #1fab9b; }
+  .tag { display: inline-block; padding: 1px 6px; background: #21262d; border-radius: 10px; font-size: 10px; margin-right: 4px; color: #7d8590; }
+  .tag.subject { background: #1e3a5f; color: #79c0ff; }
+  .tag.external { background: #3a2a1e; color: #ffa657; }
+  .tag.person { background: #2d1e3a; color: #d2a8ff; }
+  .tag.business_name { background: #3a2e1a; color: #ffd166; }
+  .tag.scheme { background: #162a28; color: #5fd6c8; }
+  .tag.principal { background: #1a2e3a; color: #4ae0e0; }
+  ul { padding-left: 18px; margin: 4px 0; font-size: 12px; }
+  ul li { margin: 2px 0; }
+  .clickable { cursor: pointer; color: #58a6ff; }
+  .clickable:hover { text-decoration: underline; }
+  button { background: #21262d; border: 1px solid #30363d; color: #e6edf3; padding: 4px 10px; border-radius: 5px; font-size: 12px; cursor: pointer; }
+  button:hover { background: #30363d; }
+  .search-results { max-height: 200px; overflow-y: auto; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; margin-top: 4px; }
+  .search-result { padding: 6px 8px; border-bottom: 1px solid #21262d; font-size: 12px; cursor: pointer; }
+  .search-result:hover { background: #1f2937; }
+  .search-result .name { color: #e6edf3; }
+  .search-result .tag { float: right; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="panel left">
+    <h1>AU Plate Contract Web</h1>
+    <div class="subtle">17 ASIC extracts + ABN Lookup + contract layer (concession / manufacturing / principal) from GTM strategy v2.</div>
+
+    <h2>Search</h2>
+    <input type="text" id="search" placeholder="Company, person, scheme..." />
+    <div id="searchResults" class="search-results" style="display:none;"></div>
+
+    <h2>Stats</h2>
+    <div class="stat"><span>Subject companies</span><b id="statSub"></b></div>
+    <div class="stat"><span>External companies</span><b id="statExt"></b></div>
+    <div class="stat"><span>Govt principals</span><b id="statPrin"></b></div>
+    <div class="stat"><span>Schemes</span><b id="statSch"></b></div>
+    <div class="stat"><span>Business names</span><b id="statBn"></b></div>
+    <div class="stat"><span>People</span><b id="statPpl"></b></div>
+    <div class="stat"><span>Relationships</span><b id="statRel"></b></div>
+
+    <h2>Node types</h2>
+    <div class="legend-row"><span class="dot" style="background:#58a6ff"></span>Subject company (ASIC extract)</div>
+    <div class="legend-row"><span class="dot" style="background:#f0883e"></span>External company</div>
+    <div class="legend-row"><span class="square" style="background:#4ae0e0"></span>Govt principal (state body)</div>
+    <div class="legend-row"><span class="square" style="background:#5fd6c8;transform:rotate(45deg)"></span>Scheme (plate program)</div>
+    <div class="legend-row"><span class="diamond" style="background:#ffd166"></span>Business / trading name</div>
+    <div class="legend-row"><span class="dot" style="background:#d2a8ff"></span>Person (director / shareholder)</div>
+
+    <h2>Contract relationships</h2>
+    <div class="legend-row"><span class="line thick" style="background:#e04aa8"></span>Concession contract</div>
+    <div class="legend-row"><span class="line" style="background:#1fab9b"></span>Manufacturing contract (Licensys)</div>
+    <div class="legend-row"><span class="line dashed" style="color:#4ae0e0"></span>Principal of (govt owns scheme)</div>
+    <div class="legend-row"><span class="line dashed" style="color:#ffd166"></span>Registered business name</div>
+
+    <h2>Corporate relationships</h2>
+    <div class="legend-row"><span class="line" style="background:#f778ba"></span>Director (current)</div>
+    <div class="legend-row"><span class="line" style="background:#8957e5;opacity:0.6"></span>Director (previous)</div>
+    <div class="legend-row"><span class="line" style="background:#3fb950"></span>Shareholder (current)</div>
+    <div class="legend-row"><span class="line" style="background:#f0883e"></span>Ultimate Holding Company</div>
+    <div class="legend-row"><span class="line" style="background:#79c0ff"></span>Secretary</div>
+
+    <h2>Filter edges</h2>
+    <label class="filter-toggle"><input type="checkbox" data-etype="concession_current" checked> <b style="color:#e04aa8">Concession contracts</b></label>
+    <label class="filter-toggle"><input type="checkbox" data-etype="manufacturing_current" checked> <b style="color:#1fab9b">Manufacturing contracts</b></label>
+    <label class="filter-toggle"><input type="checkbox" data-etype="principal_of" checked> Principal of (govt→scheme)</label>
+    <label class="filter-toggle"><input type="checkbox" data-etype="trades_as" checked> Trading names</label>
+    <label class="filter-toggle"><input type="checkbox" data-etype="director_current" checked> Directors (current)</label>
+    <label class="filter-toggle"><input type="checkbox" data-etype="director_previous"> Directors (previous)</label>
+    <label class="filter-toggle"><input type="checkbox" data-etype="shareholder_current" checked> Shareholders (current)</label>
+    <label class="filter-toggle"><input type="checkbox" data-etype="shareholder_previous"> Shareholders (previous)</label>
+    <label class="filter-toggle"><input type="checkbox" data-etype="uhc_current" checked> UHC (current)</label>
+    <label class="filter-toggle"><input type="checkbox" data-etype="uhc_previous"> UHC (previous)</label>
+    <label class="filter-toggle"><input type="checkbox" data-etype="secretary_current"> Secretaries (current)</label>
+
+    <h2>Controls</h2>
+    <button id="btnReset">Reset view</button>
+    <button id="btnFreeze">Freeze layout</button>
+  </div>
+
+  <svg id="graph"></svg>
+
+  <div class="panel right">
+    <h1>Details</h1>
+    <div id="detail">
+      <div class="subtle">Click a node to see details.</div>
+
+      <h2>Concession model (Model A states)</h2>
+      <div class="callout conc"><b>NSW — myPlates</b> (principal: TfNSW, concessionaire: <b>Plate Marketing Pty Ltd</b> / George Group, awarded 2010-10-01, ~$45.5M/yr). Licensys is sub-contracted for manufacturing.</div>
+      <div class="callout conc"><b>TAS — TasPlates</b> (principal: Dept of State Growth, concessionaire: <b>Plate Impressions Pty Ltd</b> / George Group, awarded 2023-01-13, $7.14M, expires 2027-11-30). DSG also holds the "TasPlates" ABN business name. Separate manufacturing contract (TasTenders 12795) held by Licensys, $3.98M, expires 2029-06-30.</div>
+      <div class="callout conc"><b>QLD — PPQ</b> (principal: QLD TMR, concessionaire: <b>Publicis Red Lion Pty Limited</b>). Publicis trades under "Publicis Personalised Plates" business name (from 2017). Separate manufacturing contract (TMR04220, $65M) held by Licensys until ~2026-2028.</div>
+      <div class="callout conc"><b>VIC — vplates</b> — 40-year JV concession (from 2022-06-29, ~2062) held by <b>CP Services Victoria Pty Ltd</b> (Aware Super + ART + Macquarie + VIC Govt). Licensys manufactures inside the JV. Not a competitive tender — not bidable.</div>
+
+      <h2>Manufacturing-only states (Model B)</h2>
+      <div class="callout mfg"><b>Licensys Pty Ltd</b> holds direct manufacturing contracts with SA ($35.4M), ACT ($24.45M, exp 2029-01-31), NT ($2.2M combined), and WA ($38M, locked to 2032). No private concessionaire.</div>
+
+      <h2>Corporate intel</h2>
+      <div class="callout"><b>Ian Douglas George</b> sits at the centre — appears on 14 boards across the George / Plato / Plate / Licensys clusters.</div>
+      <div class="callout"><b>Licensys Pty Ltd</b> (ACN 057 588 137) was previously <b>HARDING LICENCING SYSTEMS</b> / <b>HARDING MANUFACTURING</b>. <b>Erich Utsch AG</b> (Germany / uGroup) is UHC.</div>
+      <div class="callout"><b>Plate Holdings</b> was formerly <b>LICENSYS GROUP</b>; <b>Plate Impressions</b> was formerly <b>GEORGE INDUSTRIES HOLDINGS</b>; <b>Plato Properties</b> was formerly <b>PLATE PROPERTIES</b>.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const GRAPH = {"nodes": [{"id": "C:151341534", "label": "LICENSYS AUSTRALASIA PTY LTD", "type": "company_subject", "acn": "151341534", "address": "83 Hub Crescent, HEATHWOOD QLD 4110", "status": "Registered", "registered_in": "Queensland", "registration_date": "07/06/2011", "former_names": ["A.C.N. 151 341 534 PTY LTD"], "cluster": 0, "abn": "45151341534"}, {"id": "C:637481399", "label": "QANA INVESTMENTS PTY LTD", "type": "company_subject", "acn": "637481399", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "status": "Registered", "registered_in": "Queensland", "registration_date": "15/11/2019", "former_names": [], "cluster": 0, "abn": "45637481399"}, {"id": "C:613322197", "label": "WILHELMINA INVESTMENTS PTY LTD", "type": "company_subject", "acn": "613322197", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "status": "Registered", "registered_in": "Queensland", "registration_date": "29/06/2016", "former_names": [], "cluster": 0, "abn": "35613322197"}, {"id": "C:105262637", "label": "PLATE IMPRESSIONS PTY LTD", "type": "company_subject", "acn": "105262637", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "status": "Registered", "registered_in": "Victoria", "registration_date": "25/06/2003", "former_names": ["GEORGE INDUSTRIES HOLDINGS PTY LTD"], "cluster": 0, "abn": "33105262637"}, {"id": "C:106411072", "label": "PLATE HOLDINGS PTY LTD", "type": "company_subject", "acn": "106411072", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "status": "Registered", "registered_in": "Victoria", "registration_date": "22/09/2003", "former_names": ["LICENSYS GROUP PTY LTD"], "cluster": 0, "abn": "15106411072"}, {"id": "C:613379052", "label": "FUTURE PATRIOT GROUP PTY LTD", "type": "company_subject", "acn": "613379052", "address": "SMART STEPS ACCOUNTING PTY LTD, Suite 6, 20 6EPF12309 Brisbane Road, MOOLOOLABA QLD 4557", "status": "Registered", "registered_in": "Queensland", "registration_date": "30/06/2016", "former_names": [], "cluster": 0}, {"id": "C:105262477", "label": "GEORGE INDUSTRIES PTY LTD", "type": "company_subject", "acn": "105262477", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "status": "Registered", "registered_in": "Victoria", "registration_date": "25/06/2003", "former_names": [], "cluster": 0, "abn": "84105262477"}, {"id": "C:613302426", "label": "DEVONSHIRE SQUARE PTY LTD", "type": "company_subject", "acn": "613302426", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "status": "Registered", "registered_in": "Queensland", "registration_date": "28/06/2016", "former_names": [], "cluster": 0}, {"id": "C:617534059", "label": "PLATO PROPERTIES PTY LTD", "type": "company_subject", "acn": "617534059", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "status": "Registered", "registered_in": "Queensland", "registration_date": "21/02/2017", "former_names": ["PLATE PROPERTIES PTY LTD"], "cluster": 0, "abn": "86617534059"}, {"id": "C:054912417", "label": "HARRINGE PTY LTD", "type": "company_subject", "acn": "054912417", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "status": "Registered", "registered_in": "Queensland", "registration_date": "28/01/1992", "former_names": ["OAKDRAW PTY. LTD."], "cluster": 0, "abn": "74054912417"}, {"id": "C:625084077", "label": "HANDEL GROUP PTY LTD", "type": "company_subject", "acn": "625084077", "address": "SMART STEPS ACCOUNTING PTY LTD, Suite 6, 20 2EXD46955 Brisbane Road, MOOLOOLABA QLD 4557", "status": "Registered", "registered_in": "Queensland", "registration_date": "19/03/2018", "former_names": [], "cluster": 0, "abn": "89625084077"}, {"id": "C:613322179", "label": "AVENIR INITIATIVE PTY LTD", "type": "company_subject", "acn": "613322179", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "status": "Registered", "registered_in": "Queensland", "registration_date": "29/06/2016", "former_names": [], "cluster": 0, "abn": "31613322179"}, {"id": "C:646656788", "label": "LICENSYS PROPERTIES PTY LTD", "type": "company_subject", "acn": "646656788", "address": "83 Hub Crescent, HEATHWOOD QLD 4110", "status": "Registered", "registered_in": "Queensland", "registration_date": "16/12/2020", "former_names": [], "cluster": 0, "abn": "62646656788"}, {"id": "C:682671861", "label": "PLATO INDUSTRIES PTY LTD", "type": "company_subject", "acn": "682671861", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "status": "Registered", "registered_in": "Queensland", "registration_date": "27/11/2024", "former_names": [], "cluster": 0, "abn": "87682671861"}, {"id": "C:057588137", "label": "LICENSYS PTY LTD", "type": "company_subject", "acn": "057588137", "address": "83 Hub Crescent, HEATHWOOD QLD 4110", "status": "Registered", "registered_in": "Queensland", "registration_date": "24/09/1992", "former_names": ["HARDING LICENCING SYSTEMS PTY LTD", "HARDING MANUFACTURING PTY LIMITED", "HARDING MANUFACTURING PTY LIMITED"], "cluster": 0, "abn": "34057588137"}, {"id": "C:613302444", "label": "LACHANCE PTY LTD", "type": "company_subject", "acn": "613302444", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "status": "Registered", "registered_in": "Queensland", "registration_date": "28/06/2016", "former_names": [], "cluster": 0}, {"id": "C:098273539", "label": "PUBLICIS RED LION PTY LIMITED", "type": "company_subject", "acn": "098273539", "address": "Upper Ground Floor, 21 Harris Street, PYRMONT 7EAV96731 NSW 2009", "status": "Registered", "registered_in": "New South Wales", "registration_date": "26/09/2001", "former_names": ["TRIANGLE COMMUNICATIONS AUSTRALIA PTY", "PUBLICIS RESONATE PTY LIMITED"], "cluster": 1, "abn": "12098273539"}, {"id": "P:IAN DOUGLAS GEORGE|24/06/1950", "label": "IAN DOUGLAS GEORGE", "type": "person", "dob": "24/06/1950", "born_place": "BUNDABERG, QLD", "cluster": 0}, {"id": "P:ANDERS RUNE ERIKSSON|26/06/1965", "label": "ANDERS RUNE ERIKSSON", "type": "person", "dob": "26/06/1965", "born_place": "STOCKHOLM, SWEDEN", "cluster": 0}, {"id": "P:ANDY GORAN OLSSON|11/03/1971", "label": "ANDY GORAN OLSSON", "type": "person", "dob": "11/03/1971", "born_place": "VAXJO, SWEDEN", "cluster": 0}, {"id": "P:DOMINIC MARCEL HOEFFGEN|09/11/1981", "label": "DOMINIC MARCEL HOEFFGEN", "type": "person", "dob": "09/11/1981", "born_place": "COLGNE, GERMANY", "cluster": 0}, {"id": "P:JORN BERTRAM|16/12/1976", "label": "JORN BERTRAM", "type": "person", "dob": "16/12/1976", "born_place": "DELMENHORST, GERMANY", "cluster": 0}, {"id": "P:JOCHEN MICHAEL BETZ|13/02/1972", "label": "JOCHEN MICHAEL BETZ", "type": "person", "dob": "13/02/1972", "born_place": "STUTTGART, GERMANY", "cluster": 0}, {"id": "P:HELMUT JUNGBLUTH|13/02/1948", "label": "HELMUT JUNGBLUTH", "type": "person", "dob": "13/02/1948", "born_place": "GUESTROW, GERMANY", "cluster": 0}, {"id": "P:WOLFGANG BILGER|21/02/1962", "label": "WOLFGANG BILGER", "type": "person", "dob": "21/02/1962", "born_place": "ULM, GERMANY", "cluster": 0}, {"id": "P:MARC NEDECKY|23/07/1973", "label": "MARC NEDECKY", "type": "person", "dob": "23/07/1973", "born_place": "COLOGNE, GERMANY", "cluster": 0}, {"id": "P:DAVID LIONEL MACNAMARA|03/02/1971", "label": "DAVID LIONEL MACNAMARA", "type": "person", "dob": "03/02/1971", "cluster": 0}, {"id": "P:TONY NORMAN HOGAN|13/02/1975", "label": "TONY NORMAN HOGAN", "type": "person", "dob": "13/02/1975", "cluster": 0}, {"id": "P:MICHAEL JOHN HAWORTH|26/03/1958", "label": "MICHAEL JOHN HAWORTH", "type": "person", "dob": "26/03/1958", "cluster": 0}, {"id": "P:MICHAEL JAMES BURRIDGE|03/11/1965", "label": "MICHAEL JAMES BURRIDGE", "type": "person", "dob": "03/11/1965", "cluster": 0}, {"id": "P:LIONEL JOHN ARMITSTEAD|20/05/1951", "label": "LIONEL JOHN ARMITSTEAD", "type": "person", "dob": "20/05/1951", "cluster": 0}, {"id": "P:CHRISTINE AUDREY FRAZER|08/11/1968", "label": "CHRISTINE AUDREY FRAZER", "type": "person", "dob": "08/11/1968", "cluster": 0}, {"id": "P:CHRISTINE AUDREY FRANCES FRAZER|08/11/1968", "label": "CHRISTINE AUDREY FRANCES FRAZER", "type": "person", "dob": "08/11/1968", "cluster": 0}, {"id": "P:DAVID ROGER MILLER|11/10/1946", "label": "DAVID ROGER MILLER", "type": "person", "dob": "11/10/1946", "born_place": "BRADFORD, UNITED KINGDOM", "cluster": 0}, {"id": "P:PHILLIP JOHN KIRBY|15/10/1950", "label": "PHILLIP JOHN KIRBY", "type": "person", "dob": "15/10/1950", "born_place": "SYDNEY, NSW", "cluster": 0}, {"id": "P:MARK JASON NORTHAGE|14/01/1961", "label": "MARK JASON NORTHAGE", "type": "person", "dob": "14/01/1961", "cluster": 0}, {"id": "P:TRISHA GERRARD|05/12/1963", "label": "TRISHA GERRARD", "type": "person", "dob": "05/12/1963", "cluster": 0}, {"id": "P:BRETT STEPHEN GEORGE|25/02/1979", "label": "BRETT STEPHEN GEORGE", "type": "person", "dob": "25/02/1979", "born_place": "PERTH, WA", "cluster": 0}, {"id": "P:BEVAN THOMAS LYNCH|19/11/1947", "label": "BEVAN THOMAS LYNCH", "type": "person", "dob": "19/11/1947", "born_place": "BRISBANE, QLD", "cluster": 0}, {"id": "P:DONALD JAMES CLEARY|30/09/1944", "label": "DONALD JAMES CLEARY", "type": "person", "dob": "30/09/1944", "born_place": "PAMONA, SOUTH AFRICA", "cluster": 0}, {"id": "P:JOHN CONRAD HANSEN|20/04/1948", "label": "JOHN CONRAD HANSEN", "type": "person", "dob": "20/04/1948", "born_place": "COWRA, NSW", "cluster": 0}, {"id": "P:PETER FRANCIS KEDWELL|26/09/1954", "label": "PETER FRANCIS KEDWELL", "type": "person", "dob": "26/09/1954", "born_place": "BRISBANE, QLD", "cluster": 0}, {"id": "P:PETER ALLAN GRAHAM|27/04/1948", "label": "PETER ALLAN GRAHAM", "type": "person", "dob": "27/04/1948", "born_place": "BAIRNSDALE, VIC", "cluster": 0}, {"id": "P:PAUL ALAN WHITE|22/02/1944", "label": "PAUL ALAN WHITE", "type": "person", "dob": "22/02/1944", "born_place": "BRISBANE, QLD", "cluster": 0}, {"id": "P:NOEL JAMES GRIFFIN|07/05/1948", "label": "NOEL JAMES GRIFFIN", "type": "person", "dob": "07/05/1948", "born_place": "WANGARATTA, VIC", "cluster": 0}, {"id": "P:KEVIN WILLIAM PERKINS|08/09/1951", "label": "KEVIN WILLIAM PERKINS", "type": "person", "dob": "08/09/1951", "born_place": "BRISBANE, QLD", "cluster": 0}, {"id": "P:LIONEL ROY HENDY|19/09/1941", "label": "LIONEL ROY HENDY", "type": "person", "dob": "19/09/1941", "born_place": "BRISBANE, QLD", "cluster": 0}, {"id": "P:PAMELA MIRIAM HENDY|25/06/1938", "label": "PAMELA MIRIAM HENDY", "type": "person", "dob": "25/06/1938", "born_place": "MOUNT ISA, QLD", "cluster": 0}, {"id": "P:STEVEN MARC ROHLOFF|14/07/1974", "label": "STEVEN MARC ROHLOFF", "type": "person", "dob": "14/07/1974", "born_place": ", NEW ZEALAND", "cluster": 0}, {"id": "P:ANDREW NEIL POWERS|14/02/1955", "label": "ANDREW NEIL POWERS", "type": "person", "dob": "14/02/1955", "born_place": "OLDWOKING, UNITED KINGDOM", "cluster": 0}, {"id": "P:DONALD JAMES STEWART|20/02/1953", "label": "DONALD JAMES STEWART", "type": "person", "dob": "20/02/1953", "born_place": "TIMARU, NEW ZEALAND", "cluster": 0}, {"id": "P:TIMOTHY ANDREW CRABTREE|20/08/1962", "label": "TIMOTHY ANDREW CRABTREE", "type": "person", "dob": "20/08/1962", "born_place": "DEWSBURY, UNITED KINGDOM", "cluster": 0}, {"id": "P:FRANCISCUS HENRICUS MARIA SIMONS|07/05/1946", "label": "FRANCISCUS HENRICUS MARIA SIMONS", "type": "person", "dob": "07/05/1946", "born_place": "ROTTERDAM, NETHERLANDS", "cluster": 0}, {"id": "P:WILLIAM MATTHEW MCLEAN|12/05/1959", "label": "WILLIAM MATTHEW MCLEAN", "type": "person", "dob": "12/05/1959", "born_place": "MENTONE, VIC", "cluster": 0}, {"id": "P:ROBERT GIRVAN|16/08/1949", "label": "ROBERT GIRVAN", "type": "person", "dob": "16/08/1949", "born_place": "GREENOCK, UNITED KINGDOM", "cluster": 0}, {"id": "P:GRAEME JOHN TITCOMBE|02/10/1946", "label": "GRAEME JOHN TITCOMBE", "type": "person", "dob": "02/10/1946", "born_place": "FOXTON, NEW ZEALAND", "cluster": 0}, {"id": "P:PETER JOHN EDWARDS|05/05/1958", "label": "PETER JOHN EDWARDS", "type": "person", "dob": "05/05/1958", "born_place": "LOWER HUTT, NEW ZEALAND", "cluster": 0}, {"id": "P:LAURIE FRANK GEORGE HAINES|30/12/1941", "label": "LAURIE FRANK GEORGE HAINES", "type": "person", "dob": "30/12/1941", "born_place": "LONDON, UNITED KINGDOM", "cluster": 0}, {"id": "P:PATRICK ALEXANDER MACKEY|31/10/1947", "label": "PATRICK ALEXANDER MACKEY", "type": "person", "dob": "31/10/1947", "born_place": "HONOLULU HAWAII, UNITED STATES", "cluster": 0}, {"id": "P:STUART MALCOLM ALLAN|27/12/1961", "label": "STUART MALCOLM ALLAN", "type": "person", "dob": "27/12/1961", "born_place": "ALDERSHOT, UNITED KINGDOM", "cluster": 0}, {"id": "P:ADRIAN EDWARD STOKES|13/04/1952", "label": "ADRIAN EDWARD STOKES", "type": "person", "dob": "13/04/1952", "born_place": "BRISBANE, QLD", "cluster": 0}, {"id": "P:PHILIP JOHN COTTON|27/09/1960", "label": "PHILIP JOHN COTTON", "type": "person", "dob": "27/09/1960", "cluster": 0}, {"id": "P:PETER CLIFFORD PATRICK|20/02/1939", "label": "PETER CLIFFORD PATRICK", "type": "person", "dob": "20/02/1939", "cluster": 0}, {"id": "P:OUJIN SHIM|23/08/1973", "label": "OUJIN SHIM", "type": "person", "dob": "23/08/1973", "born_place": "SEOUL, REPUBLIC OF KOREA", "cluster": 1}, {"id": "P:MICHAEL PETER REBELO|16/02/1973", "label": "MICHAEL PETER REBELO", "type": "person", "dob": "16/02/1973", "born_place": "CALCUTTA, INDIA", "cluster": 1}, {"id": "P:LOUIS TOHME|14/04/1970", "label": "LOUIS TOHME", "type": "person", "dob": "14/04/1970", "born_place": "KOUR, LEBANON", "cluster": 1}, {"id": "P:TEGUH PRENOTO CHEN|16/06/1969", "label": "TEGUH PRENOTO CHEN", "type": "person", "dob": "16/06/1969", "born_place": "SEMARANG, INDONESIA", "cluster": 1}, {"id": "P:LORIS PHILIPPE NOLD|10/11/1970", "label": "LORIS PHILIPPE NOLD", "type": "person", "dob": "10/11/1970", "born_place": "THIONVILLE, FRANCE", "cluster": 1}, {"id": "P:ANDREW MURRAY BAXTER|11/12/1967", "label": "ANDREW MURRAY BAXTER", "type": "person", "dob": "11/12/1967", "born_place": "MELBOURNE, VIC", "cluster": 1}, {"id": "P:ANN ELIZABETH GARREAUD|29/12/1963", "label": "ANN ELIZABETH GARREAUD", "type": "person", "dob": "29/12/1963", "born_place": "PENNSYLVANIA, UNITED STATES", "cluster": 1}, {"id": "P:JEAN-YVES NAOURI|19/11/1959", "label": "JEAN-YVES NAOURI", "type": "person", "dob": "19/11/1959", "born_place": "BONE, ALGERIA", "cluster": 1}, {"id": "P:JOANNE ELIZABETH POLLARD|21/10/1965", "label": "JOANNE ELIZABETH POLLARD", "type": "person", "dob": "21/10/1965", "born_place": "ARMIDALE, NSW", "cluster": 1}, {"id": "P:ANDRE CLEMENT COSTE|12/01/1963", "label": "ANDRE CLEMENT COSTE", "type": "person", "dob": "12/01/1963", "born_place": "BOURGES, FRANCE", "cluster": 1}, {"id": "P:CRAIG DAVIS|29/01/1962", "label": "CRAIG DAVIS", "type": "person", "dob": "29/01/1962", "born_place": "HAMILTON, NEW ZEALAND", "cluster": 1}, {"id": "P:NICHOLAS ALEXANDER DAVIE|17/06/1957", "label": "NICHOLAS ALEXANDER DAVIE", "type": "person", "dob": "17/06/1957", "born_place": "MELBOURNE, VIC", "cluster": 1}, {"id": "P:RICHARD KEITH OTTON|16/01/1946", "label": "RICHARD KEITH OTTON", "type": "person", "dob": "16/01/1946", "born_place": "SYDNEY, NSW", "cluster": 1}, {"id": "P:GRAEME HAROLD WILLS|20/05/1952", "label": "GRAEME HAROLD WILLS", "type": "person", "dob": "20/05/1952", "born_place": "AUCKLAND, NEW ZEALAND", "cluster": 1}, {"id": "P:KEVIN BRUCE RAMSAY|17/12/1954", "label": "KEVIN BRUCE RAMSAY", "type": "person", "dob": "17/12/1954", "born_place": "TE KOPURU, NEW ZEALAND", "cluster": 1}, {"id": "P:RICHARD CHARLES PINDER|25/04/1964", "label": "RICHARD CHARLES PINDER", "type": "person", "dob": "25/04/1964", "born_place": "ALDERSHOT, UNITED KINGDOM", "cluster": 1}, {"id": "P:OLIVIER HENRI FLEUROT|06/09/1952", "label": "OLIVIER HENRI FLEUROT", "type": "person", "dob": "06/09/1952", "born_place": "ORANGE, FRANCE", "cluster": 1}, {"id": "P:MATTHEW EDWARD GODFREY|03/07/1967", "label": "MATTHEW EDWARD GODFREY", "type": "person", "dob": "03/07/1967", "born_place": "CANBERRA, ACT", "cluster": 1}, {"id": "P:ANDRE PINTO|12/07/1963", "label": "ANDRE PINTO", "type": "person", "dob": "12/07/1963", "born_place": "CASABLANCA, MOROCCO", "cluster": 1}, {"id": "P:HENRI RAYMOND|20/01/1980", "label": "HENRI RAYMOND", "type": "person", "dob": "20/01/1980", "cluster": 1}, {"id": "P:STEPHEN GEORGE DEVENISH-MEARES|10/06/1962", "label": "STEPHEN GEORGE DEVENISH-MEARES", "type": "person", "dob": "10/06/1962", "cluster": 1}, {"id": "P:LARS OSTERDAL|19/07/1957", "label": "LARS OSTERDAL", "type": "person", "dob": "19/07/1957", "cluster": 1}, {"id": "P:DAVID MICHAEL GERRIE|20/01/1970", "label": "DAVID MICHAEL GERRIE", "type": "person", "dob": "20/01/1970", "cluster": 1}, {"id": "P:TIMOTHY FRANK LAING|03/05/1953", "label": "TIMOTHY FRANK LAING", "type": "person", "dob": "03/05/1953", "cluster": 1}, {"id": "C:151341543", "label": "ERICH UTSCH AG", "type": "company_external", "acn": "151341543", "address": "Marienhutte 49, 57080 Siegen, Germany", "cluster": 0}, {"id": "C:609647725", "label": "PVI HOLDINGS PTY LTD", "type": "company_external", "acn": "609647725", "address": "Level 1, 67 Lytton Road, EAST BRISBANE QLD 4169", "cluster": 0}, {"id": "C:610283862", "label": "TOENNJES C.A.R.D. INTERNATIONAL GMBH", "type": "company_external", "acn": "610283862", "cluster": 0}, {"id": "C:110777118", "label": "TOENNJES AUSTRALIA PTY LTD", "type": "company_external", "acn": "110777118", "cluster": 0}, {"id": "C:010691531", "label": "LICENSYS HOLDINGS PTY LTD", "type": "company_external", "acn": "010691531", "cluster": 0}, {"id": "P:BRETT STEPHEN GEORGE|", "label": "BRETT STEPHEN GEORGE", "type": "person", "address": "4 Kallatina Drive, ILUKA WA 6028", "cluster": 0}, {"id": "P:IAN DOUGLAS GEORGE|", "label": "IAN DOUGLAS GEORGE", "type": "person", "address": "Unit 8, 81 Moray Street, NEW FARM QLD 4005", "cluster": 0}, {"id": "P:DONALD JAMES CLEARY|", "label": "DONALD JAMES CLEARY", "type": "person", "cluster": 0}, {"id": "P:PETER ALLAN GRAHAM|", "label": "PETER ALLAN GRAHAM", "type": "person", "cluster": 0}, {"id": "P:NOEL JAMES GRIFFIN|", "label": "NOEL JAMES GRIFFIN", "type": "person", "cluster": 0}, {"id": "P:JOHN CONRAD HANSEN|", "label": "JOHN CONRAD HANSEN", "type": "person", "cluster": 0}, {"id": "P:PETER FRANCIS KEDWELL|", "label": "PETER FRANCIS KEDWELL", "type": "person", "cluster": 0}, {"id": "P:BEVAN THOMAS LYNCH|", "label": "BEVAN THOMAS LYNCH", "type": "person", "cluster": 0}, {"id": "P:KEVIN WILLIAM PERKINS|", "label": "KEVIN WILLIAM PERKINS", "type": "person", "cluster": 0}, {"id": "P:PAUL ALAN WHITE|", "label": "PAUL ALAN WHITE", "type": "person", "cluster": 0}, {"id": "P:RICHARD SMITH|", "label": "RICHARD SMITH", "type": "person", "address": "11 Birds Road, GUANABA QLD 4210", "cluster": 0}, {"id": "P:GUY BANDUCCI|", "label": "GUY BANDUCCI", "type": "person", "address": "21 Mark Street, HUNTERS HILL NSW 2110", "cluster": 0}, {"id": "P:MARK TKOCZ|", "label": "MARK TKOCZ", "type": "person", "address": "21 Mark Street, HUNTERS HILL NSW 2110", "cluster": 0}, {"id": "C:606732692", "label": "CROSBY VENTURES PTY LTD", "type": "company_external", "acn": "606732692", "address": "117 Fernberg Road, PADDINGTON QLD 4064", "cluster": 0}, {"id": "C:060772429", "label": "ADMAN LANES PTY LTD", "type": "company_external", "acn": "060772429", "address": "300 Spencer Street, MELBOURNE VIC 3000", "cluster": 0}, {"id": "C:169918049", "label": "RISHANE PTY LTD", "type": "company_external", "acn": "169918049", "address": "Unit 12, 16 Mitcham Street, GAYTHORNE QLD 4051", "cluster": 0}, {"id": "P:MATTHEW JAMES GIBSON|", "label": "MATTHEW JAMES GIBSON", "type": "person", "cluster": 0}, {"id": "C:163170732", "label": "RIBITAG PTY LTD", "type": "company_external", "acn": "163170732", "cluster": 0}, {"id": "C:GARY NEVILLE MAGUIRE", "label": "GARY NEVILLE MAGUIRE", "type": "company_external", "cluster": 0}, {"id": "C:618996848", "label": "FOUR FROM TWO PTY LTD", "type": "company_external", "acn": "618996848", "cluster": 0}, {"id": "C:010331843", "label": "B. J. POSCHELK PTY LTD", "type": "company_external", "acn": "010331843", "cluster": 0}, {"id": "P:JAMES KRUGER|", "label": "JAMES KRUGER", "type": "person", "cluster": 0}, {"id": "P:MIRANDA KRUGER|", "label": "MIRANDA KRUGER", "type": "person", "cluster": 0}, {"id": "P:DAVID FREDERICK OATLEY|", "label": "DAVID FREDERICK OATLEY", "type": "person", "cluster": 0}, {"id": "C:009970807", "label": "JAMELCO PTY. LTD.", "type": "company_external", "acn": "009970807", "cluster": 0}, {"id": "C:110961996", "label": "BRICE SUPERANNUATION PTY. LTD.", "type": "company_external", "acn": "110961996", "cluster": 0}, {"id": "C:164515271", "label": "POSCHELK FAMILY PTY LTD", "type": "company_external", "acn": "164515271", "cluster": 0}, {"id": "C:154897588", "label": "SMYTH GUARDIAN PTY LTD", "type": "company_external", "acn": "154897588", "cluster": 0}, {"id": "C:104461878", "label": "ESCAPE OUT PTY LTD", "type": "company_external", "acn": "104461878", "cluster": 0}, {"id": "C:137965989", "label": "ZAMIJA PTY LTD", "type": "company_external", "acn": "137965989", "cluster": 0}, {"id": "C:626527320", "label": "FORRESTER FAMILY OFFICE PTY LTD", "type": "company_external", "acn": "626527320", "cluster": 0}, {"id": "C:145668515", "label": "JTFW PTY LTD", "type": "company_external", "acn": "145668515", "cluster": 0}, {"id": "C:155979632", "label": "NORTH OF THE RIVER INVESTMENTS PTY LTD", "type": "company_external", "acn": "155979632", "cluster": 0}, {"id": "C:126137344", "label": "STRAIGHT TO THE POOL ROOM PTY LTD", "type": "company_external", "acn": "126137344", "cluster": 0}, {"id": "C:133513023", "label": "JED ENTERPRISES PTY LTD", "type": "company_external", "acn": "133513023", "cluster": 0}, {"id": "C:120853063", "label": "INDEVCO GROUP HOLDINGS PTY LIMITED", "type": "company_external", "acn": "120853063", "cluster": 0}, {"id": "P:JOHN WARREN MCCORMACK|", "label": "JOHN WARREN MCCORMACK", "type": "person", "cluster": 0}, {"id": "P:MADONNA ELLEN MCCORMACK|", "label": "MADONNA ELLEN MCCORMACK", "type": "person", "cluster": 0}, {"id": "C:616053653", "label": "ALTOR CAPITAL MANAGEMENT PTY LTD", "type": "company_external", "acn": "616053653", "cluster": 0}, {"id": "C:MANFRED LAGEMANN", "label": "MANFRED LAGEMANN", "type": "company_external", "cluster": 0}, {"id": "C:149079103", "label": "NDRH INVESTMENTS PTY LTD", "type": "company_external", "acn": "149079103", "cluster": 0}, {"id": "C:078957089", "label": "NAREND PTY LIMITED", "type": "company_external", "acn": "078957089", "cluster": 0}, {"id": "P:STEVEN MARC ROHLOFF|", "label": "STEVEN MARC ROHLOFF", "type": "person", "cluster": 0}, {"id": "C:604324334", "label": "ALTOR PRIVATE EQUITY PTY. LTD.", "type": "company_external", "acn": "604324334", "cluster": 0}, {"id": "C:646656797", "label": "SCANDECTOR AKTIEBOLAG", "type": "company_external", "acn": "646656797", "address": "Box 125 182 12 Danderyd, Sweden", "cluster": 0}, {"id": "C:125647592", "label": "RICHARD LINDSAY PTY LTD", "type": "company_external", "acn": "125647592", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "cluster": 0}, {"id": "C:652125043", "label": "OLSSON IPH PTY LTD", "type": "company_external", "acn": "652125043", "address": "14 Grant Street, CAMP HILL QLD 4152", "cluster": 0}, {"id": "C:054812994", "label": "HARDING ELECTRONICS SYSTEMS PTY LIMITED", "type": "company_external", "acn": "054812994", "cluster": 0}, {"id": "P:ROBERT GIRVAN|", "label": "ROBERT GIRVAN", "type": "person", "cluster": 0}, {"id": "C:000026228", "label": "MULTI MARKET SERVICES AUSTRALIA HOLDINGS PTY LTD", "type": "company_external", "acn": "000026228", "address": "21 Harris Street, PYRMONT NSW 2009", "cluster": 1}, {"id": "C:064907973", "label": "PUBLICIS COMMUNICATION PTY LIMITED", "type": "company_external", "acn": "064907973", "cluster": 1}, {"id": "C:602550809", "label": "UTSCH TOENNJES INTERNATIONAL AG", "type": "company_external", "acn": "602550809", "cluster": 0}, {"id": "C:010690561", "label": "REINDEER INVESTMENTS PTY. LTD.", "type": "company_external", "acn": "010690561", "cluster": 0}, {"id": "C:086364865", "label": "VIKING PACIFIC HOLDINGS LIMITED", "type": "company_external", "acn": "086364865", "cluster": 0}, {"id": "C:063970347", "label": "SKELLERUP GROUP LIMITED", "type": "company_external", "acn": "063970347", "cluster": 0}, {"id": "C:BIL INTERNATIONAL LIMITED", "label": "BIL INTERNATIONAL LIMITED", "type": "company_external", "cluster": 0}, {"id": "C:107891850", "label": "PUBLICIS GROUPE HOLDINGS BV", "type": "company_external", "acn": "107891850", "cluster": 1}, {"id": "C:622598270", "label": "PATRIOT RESOURCES PTY LTD", "type": "company_external", "acn": "622598270", "cluster": 0}, {"id": "C:623746314", "label": "UTILITY MAPPING GROUP PTY LTD", "type": "company_external", "acn": "623746314", "cluster": 0}, {"id": "C:624044793", "label": "PATREON PROJECTS PTY LTD", "type": "company_external", "acn": "624044793", "cluster": 0}, {"id": "C:624360390", "label": "FLEXISKIP PTY LTD", "type": "company_external", "acn": "624360390", "address": "736 Logan Road, GREENSLOPES QLD 4120", "cluster": 0}, {"id": "C:624419147", "label": "ABT ASSETS PTY LTD", "type": "company_external", "acn": "624419147", "cluster": 0}, {"id": "C:605720401", "label": "UTILITY MAPPING (AUST) PTY LTD", "type": "company_external", "acn": "605720401", "cluster": 0}, {"id": "C:602706043", "label": "PIPE HAWK CCTV PTY LTD", "type": "company_external", "acn": "602706043", "cluster": 0}, {"id": "C:615672869", "label": "AUSTRALIAN BULK TRANSPORT PTY LTD", "type": "company_external", "acn": "615672869", "cluster": 0}, {"id": "C:133136400", "label": "PATRIOT TANKERS PTY LTD", "type": "company_external", "acn": "133136400", "cluster": 0}, {"id": "C:632191925", "label": "PATRIOT ASSET COMPANY PTY LTD", "type": "company_external", "acn": "632191925", "cluster": 0}, {"id": "C:632192360", "label": "PATRIOT UTILITY COMPANY PTY LTD", "type": "company_external", "acn": "632192360", "cluster": 0}, {"id": "C:687125168", "label": "HANDEL360 PTY LTD", "type": "company_external", "acn": "687125168", "address": "Shop 6, 20 Brisbane Road, MOOLOOLABA QLD 4557", "cluster": 0}, {"id": "C:628889421", "label": "HANDEL TECH PTY LTD", "type": "company_external", "acn": "628889421", "cluster": 0}, {"id": "C:628889449", "label": "HANDEL TRADE PTY LTD", "type": "company_external", "acn": "628889449", "cluster": 0}, {"id": "C:009689267", "label": "WOODSTON INVESTMENTS PTY. LTD.", "type": "company_external", "acn": "009689267", "cluster": 0}, {"id": "C:134376202", "label": "DIGI GRAPHIX PTY LTD", "type": "company_external", "acn": "134376202", "cluster": 0}, {"id": "C:608906458", "label": "DOCKETBOOK PTY. LTD.", "type": "company_external", "acn": "608906458", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "cluster": 0}, {"id": "C:136499440", "label": "YEPP ROWING PTY LTD", "type": "company_external", "acn": "136499440", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "cluster": 0}, {"id": "C:626876122", "label": "AVIATRIX INVESTMENTS PTY LTD", "type": "company_external", "acn": "626876122", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "cluster": 0}, {"id": "C:641678864", "label": "TOVARNA INVESTMENTS PTY LTD", "type": "company_external", "acn": "641678864", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "cluster": 0}, {"id": "C:667545299", "label": "MYKONOS NO.1 PTY LTD", "type": "company_external", "acn": "667545299", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "cluster": 0}, {"id": "C:669692424", "label": "MYKONOS NO. 3 PTY LTD", "type": "company_external", "acn": "669692424", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "cluster": 0}, {"id": "C:669694008", "label": "MYKONOS NO. 6 PTY LTD", "type": "company_external", "acn": "669694008", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "cluster": 0}, {"id": "C:671747069", "label": "MYKONOS NO.10 PTY LTD", "type": "company_external", "acn": "671747069", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "cluster": 0}, {"id": "C:677603593", "label": "MIRCH 15 PTY LTD", "type": "company_external", "acn": "677603593", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "cluster": 0}, {"id": "C:676321190", "label": "DON'T BE PREY PTY LTD", "type": "company_external", "acn": "676321190", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "cluster": 0}, {"id": "C:142084302", "label": "PLATE MARKETING PTY LTD", "type": "company_external", "acn": "142084302", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "cluster": 0, "abn": "17142084302"}, {"id": "C:605337148", "label": "PROJECT VILLAGE PTY LTD", "type": "company_external", "acn": "605337148", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "cluster": 0}, {"id": "C:612029115", "label": "FHY PTY LTD", "type": "company_external", "acn": "612029115", "cluster": 0}, {"id": "C:682673114", "label": "PLATO SOLUTIONS PTY LTD", "type": "company_external", "acn": "682673114", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "cluster": 0}, {"id": "C:687870524", "label": "MARKETPLATES PTY LTD", "type": "company_external", "acn": "687870524", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "cluster": 0, "abn": "14687870524"}, {"id": "C:644192030", "label": "PLUNGIE HOLDINGS PTY LTD", "type": "company_external", "acn": "644192030", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "cluster": 0}, {"id": "C:112785510", "label": "ENTIFY PTY LTD", "type": "company_external", "acn": "112785510", "address": "93 Wolston Road, SUMNER QLD 4074", "cluster": 0}, {"id": "C:626876131", "label": "METIETA PTY LTD", "type": "company_external", "acn": "626876131", "address": "Unit 2, 93 Commercial Road, NEWSTEAD QLD 4006", "cluster": 0}, {"id": "B:PUBLICIS PERSONALISED PLATES", "label": "Publicis Personalised Plates", "type": "business_name", "from": "2017-06-02", "cluster": 1}, {"id": "B:N2N COMMUNICATIONS-HERD MSL", "label": "N2N Communications-Herd MSL", "type": "business_name", "from": "2021-10-29", "cluster": 1}, {"id": "B:HMSL PR", "label": "HMSL PR", "type": "business_name", "from": "2025-07-03", "cluster": 1}, {"id": "B:ACT PLATES", "label": "ACT PLATES", "type": "business_name", "from": "2013-07-04", "cluster": 0}, {"id": "B:PLATES WEST", "label": "PLATES WEST", "type": "business_name", "from": "2013-07-04", "cluster": 0}, {"id": "C:DEPT_OF_STATE_GROWTH_TAS", "label": "Dept of State Growth (TAS)", "type": "principal", "abn": "36388980563", "address": "Tasmanian state government", "note": "Holds TasPlates business name \u2014 NOT a George Group entity"}, {"id": "B:TASPLATES", "label": "TasPlates", "type": "business_name", "from": "2017-11-13", "note": "Held by TAS state government, not George Group", "scheme_flag": true, "scheme_note": "TAS personalised plates scheme. DSG holds the business name; Plate Impressions runs it under concession."}, {"id": "C:TFNSW", "label": "Transport for NSW", "type": "principal", "note": "NSW state government"}, {"id": "C:QLD_TMR", "label": "QLD TMR (Transport & Main Roads)", "type": "principal", "note": "Queensland state government"}, {"id": "C:CMTEDD_ACT", "label": "CMTEDD (ACT)", "type": "principal", "note": "ACT government"}, {"id": "C:DIT_SA", "label": "DIT SA", "type": "principal", "note": "South Australia state government"}, {"id": "C:DIPL_NT", "label": "DIPL / MVR (NT)", "type": "principal", "note": "Northern Territory government"}, {"id": "C:WA_DOT", "label": "WA Dept of Transport", "type": "principal", "note": "Western Australia state government"}, {"id": "C:VIC_GOVT", "label": "VIC Government", "type": "principal", "note": "Victoria \u2014 partner in CP Services Victoria JV"}, {"id": "S:MYPLATES", "label": "myPlates", "type": "scheme", "note": "NSW personalised plates scheme (TfNSW). Operated by Plate Marketing under concession."}, {"id": "S:PPQ", "label": "PPQ (Personalised Plates QLD)", "type": "scheme", "note": "QLD personalised plates scheme (QLD TMR). Operated by Publicis Red Lion."}, {"id": "S:VPLATES", "label": "vplates (VIC)", "type": "scheme", "note": "VIC plates scheme. Run by CP Services Victoria Pty Ltd (Aware Super + ART + Macquarie + VIC Govt JV). 40-year concession."}, {"id": "S:EZYPLATES", "label": "EzyPlates (SA)", "type": "scheme", "note": "SA personalised plates. DIT SA runs the scheme in-house (no private concessionaire)."}, {"id": "C:657005439", "label": "CP SERVICES VICTORIA PTY LTD", "type": "company_external", "acn": "657005439", "note": "VicRoads JV \u2014 Aware Super + ART + Macquarie + VIC Govt. 40-year concession from 2022-06-29."}], "edges": [{"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:151341534", "type": "director_current", "appointed": "22/01/2019"}, {"source": "P:ANDERS RUNE ERIKSSON|26/06/1965", "target": "C:151341534", "type": "director_current", "appointed": "22/01/2019"}, {"source": "P:ANDY GORAN OLSSON|11/03/1971", "target": "C:151341534", "type": "director_current", "appointed": "07/06/2011"}, {"source": "P:DOMINIC MARCEL HOEFFGEN|09/11/1981", "target": "C:151341534", "type": "director_current", "appointed": "29/07/2025"}, {"source": "P:JORN BERTRAM|16/12/1976", "target": "C:151341534", "type": "director_previous", "appointed": "24/11/2011", "ceased": "20/12/2018"}, {"source": "P:JOCHEN MICHAEL BETZ|13/02/1972", "target": "C:151341534", "type": "director_previous", "appointed": "22/09/2014", "ceased": "20/12/2018"}, {"source": "P:HELMUT JUNGBLUTH|13/02/1948", "target": "C:151341534", "type": "director_previous", "appointed": "07/06/2011", "ceased": "15/09/2014"}, {"source": "P:WOLFGANG BILGER|21/02/1962", "target": "C:151341534", "type": "director_previous", "appointed": "07/06/2011", "ceased": "24/11/2011"}, {"source": "P:MARC NEDECKY|23/07/1973", "target": "C:151341534", "type": "director_previous", "appointed": "16/09/2014", "ceased": "31/08/2015"}, {"source": "P:DAVID LIONEL MACNAMARA|03/02/1971", "target": "C:151341534", "type": "secretary_current", "appointed": "04/02/2014"}, {"source": "P:TONY NORMAN HOGAN|13/02/1975", "target": "C:151341534", "type": "secretary_current", "appointed": "15/01/2024"}, {"source": "P:MICHAEL JOHN HAWORTH|26/03/1958", "target": "C:151341534", "type": "secretary_previous", "appointed": "18/09/2012", "ceased": "04/02/2014"}, {"source": "P:MICHAEL JAMES BURRIDGE|03/11/1965", "target": "C:151341534", "type": "secretary_previous", "appointed": "02/07/2011", "ceased": "17/09/2012"}, {"source": "P:LIONEL JOHN ARMITSTEAD|20/05/1951", "target": "C:151341534", "type": "secretary_previous", "appointed": "29/06/2011", "ceased": "02/07/2011"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:637481399", "type": "director_current", "appointed": "15/11/2019"}, {"source": "P:CHRISTINE AUDREY FRAZER|08/11/1968", "target": "C:637481399", "type": "secretary_current", "appointed": "15/11/2019"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:637481399", "type": "secretary_current", "appointed": "15/11/2019"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:613322197", "type": "director_current", "appointed": "29/06/2016"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:613322197", "type": "secretary_current", "appointed": "29/06/2016"}, {"source": "P:CHRISTINE AUDREY FRANCES FRAZER|08/11/1968", "target": "C:613322197", "type": "secretary_current", "appointed": "29/06/2016"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:105262637", "type": "director_current", "appointed": "26/06/2003"}, {"source": "P:DAVID ROGER MILLER|11/10/1946", "target": "C:105262637", "type": "director_previous", "appointed": "25/06/2003", "ceased": "26/06/2003"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:105262637", "type": "secretary_current", "appointed": "26/06/2003"}, {"source": "P:CHRISTINE AUDREY FRANCES FRAZER|08/11/1968", "target": "C:105262637", "type": "secretary_current", "appointed": "26/06/2003"}, {"source": "P:PHILLIP JOHN KIRBY|15/10/1950", "target": "C:105262637", "type": "secretary_previous", "appointed": "26/06/2003", "ceased": "17/06/2015"}, {"source": "P:MARK JASON NORTHAGE|14/01/1961", "target": "C:105262637", "type": "secretary_previous", "appointed": "18/01/2008", "ceased": "30/09/2011"}, {"source": "P:TRISHA GERRARD|05/12/1963", "target": "C:105262637", "type": "secretary_previous", "appointed": "26/06/2003", "ceased": "08/11/2010"}, {"source": "P:DAVID ROGER MILLER|11/10/1946", "target": "C:105262637", "type": "secretary_previous", "appointed": "25/06/2003", "ceased": "26/06/2003"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:106411072", "type": "director_current", "appointed": "22/09/2003"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:106411072", "type": "secretary_current", "appointed": "22/09/2003"}, {"source": "P:CHRISTINE AUDREY FRANCES FRAZER|08/11/1968", "target": "C:106411072", "type": "secretary_current", "appointed": "22/09/2003"}, {"source": "P:PHILLIP JOHN KIRBY|15/10/1950", "target": "C:106411072", "type": "secretary_previous", "appointed": "28/10/2003", "ceased": "17/06/2015"}, {"source": "P:MARK JASON NORTHAGE|14/01/1961", "target": "C:106411072", "type": "secretary_previous", "appointed": "18/01/2008", "ceased": "30/09/2011"}, {"source": "P:TRISHA GERRARD|05/12/1963", "target": "C:106411072", "type": "secretary_previous", "appointed": "22/09/2003", "ceased": "08/11/2010"}, {"source": "P:BRETT STEPHEN GEORGE|25/02/1979", "target": "C:613379052", "type": "director_current", "appointed": "30/06/2016"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:105262477", "type": "director_current", "appointed": "26/06/2003"}, {"source": "P:DAVID ROGER MILLER|11/10/1946", "target": "C:105262477", "type": "director_previous", "appointed": "25/06/2003", "ceased": "26/06/2003"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:105262477", "type": "secretary_current", "appointed": "26/06/2003"}, {"source": "P:CHRISTINE AUDREY FRAZER|08/11/1968", "target": "C:105262477", "type": "secretary_current", "appointed": "26/06/2003"}, {"source": "P:PHILLIP JOHN KIRBY|15/10/1950", "target": "C:105262477", "type": "secretary_previous", "appointed": "26/06/2003", "ceased": "17/06/2015"}, {"source": "P:MARK JASON NORTHAGE|14/01/1961", "target": "C:105262477", "type": "secretary_previous", "appointed": "18/01/2008", "ceased": "30/09/2011"}, {"source": "P:TRISHA GERRARD|05/12/1963", "target": "C:105262477", "type": "secretary_previous", "appointed": "26/06/2003", "ceased": "08/11/2010"}, {"source": "P:DAVID ROGER MILLER|11/10/1946", "target": "C:105262477", "type": "secretary_previous", "appointed": "25/06/2003", "ceased": "26/06/2003"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:613302426", "type": "director_current", "appointed": "28/06/2016"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:613302426", "type": "secretary_current", "appointed": "28/06/2016"}, {"source": "P:CHRISTINE AUDREY FRANCES FRAZER|08/11/1968", "target": "C:613302426", "type": "secretary_current", "appointed": "28/06/2016"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:617534059", "type": "director_current", "appointed": "21/02/2017"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:617534059", "type": "secretary_current", "appointed": "21/02/2017"}, {"source": "P:CHRISTINE AUDREY FRAZER|08/11/1968", "target": "C:617534059", "type": "secretary_current", "appointed": "21/02/2017"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:054912417", "type": "director_current", "appointed": "26/02/1992"}, {"source": "P:PHILLIP JOHN KIRBY|15/10/1950", "target": "C:054912417", "type": "director_previous", "appointed": "15/12/1997", "ceased": "13/07/1999"}, {"source": "P:BEVAN THOMAS LYNCH|19/11/1947", "target": "C:054912417", "type": "director_previous", "appointed": "26/02/1992", "ceased": "15/12/1997"}, {"source": "P:DONALD JAMES CLEARY|30/09/1944", "target": "C:054912417", "type": "director_previous", "appointed": "26/02/1992", "ceased": "15/12/1997"}, {"source": "P:JOHN CONRAD HANSEN|20/04/1948", "target": "C:054912417", "type": "director_previous", "appointed": "26/02/1992", "ceased": "15/12/1997"}, {"source": "P:PETER FRANCIS KEDWELL|26/09/1954", "target": "C:054912417", "type": "director_previous", "appointed": "26/02/1992", "ceased": "15/12/1997"}, {"source": "P:PETER ALLAN GRAHAM|27/04/1948", "target": "C:054912417", "type": "director_previous", "appointed": "26/02/1992", "ceased": "20/06/1996"}, {"source": "P:PAUL ALAN WHITE|22/02/1944", "target": "C:054912417", "type": "director_previous", "appointed": "26/02/1992", "ceased": "20/06/1996"}, {"source": "P:NOEL JAMES GRIFFIN|07/05/1948", "target": "C:054912417", "type": "director_previous", "appointed": "26/02/1992", "ceased": "20/06/1996"}, {"source": "P:KEVIN WILLIAM PERKINS|08/09/1951", "target": "C:054912417", "type": "director_previous", "appointed": "26/02/1992", "ceased": "20/06/1996"}, {"source": "P:LIONEL ROY HENDY|19/09/1941", "target": "C:054912417", "type": "director_previous", "appointed": "28/01/1992", "ceased": "26/02/1992"}, {"source": "P:PAMELA MIRIAM HENDY|25/06/1938", "target": "C:054912417", "type": "director_previous", "appointed": "28/01/1992", "ceased": "26/02/1992"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:054912417", "type": "secretary_current", "appointed": "15/12/1997"}, {"source": "P:CHRISTINE AUDREY FRANCES FRAZER|08/11/1968", "target": "C:054912417", "type": "secretary_current", "appointed": "01/05/2003"}, {"source": "P:PHILLIP JOHN KIRBY|15/10/1950", "target": "C:054912417", "type": "secretary_previous", "appointed": "13/07/1999", "ceased": "17/06/2015"}, {"source": "P:MARK JASON NORTHAGE|14/01/1961", "target": "C:054912417", "type": "secretary_previous", "appointed": "18/01/2008", "ceased": "30/09/2011"}, {"source": "P:TRISHA GERRARD|05/12/1963", "target": "C:054912417", "type": "secretary_previous", "appointed": "18/09/1998", "ceased": "08/11/2010"}, {"source": "P:DONALD JAMES CLEARY|30/09/1944", "target": "C:054912417", "type": "secretary_previous", "appointed": "26/02/1992", "ceased": "15/12/1997"}, {"source": "P:PAMELA MIRIAM HENDY|25/06/1938", "target": "C:054912417", "type": "secretary_previous", "appointed": "28/01/1992", "ceased": "26/02/1992"}, {"source": "P:BRETT STEPHEN GEORGE|25/02/1979", "target": "C:625084077", "type": "director_current", "appointed": "19/03/2018"}, {"source": "P:STEVEN MARC ROHLOFF|14/07/1974", "target": "C:625084077", "type": "director_previous", "appointed": "19/03/2018", "ceased": "03/02/2020"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:613322179", "type": "director_current", "appointed": "29/06/2016"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:613322179", "type": "secretary_current", "appointed": "29/06/2016"}, {"source": "P:CHRISTINE AUDREY FRANCES FRAZER|08/11/1968", "target": "C:613322179", "type": "secretary_current", "appointed": "29/06/2016"}, {"source": "P:ANDERS RUNE ERIKSSON|26/06/1965", "target": "C:646656788", "type": "director_current", "appointed": "16/12/2020"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:646656788", "type": "director_current", "appointed": "16/12/2020"}, {"source": "P:ANDY GORAN OLSSON|11/03/1971", "target": "C:646656788", "type": "director_current", "appointed": "16/12/2020"}, {"source": "P:DAVID LIONEL MACNAMARA|03/02/1971", "target": "C:646656788", "type": "secretary_current", "appointed": "16/12/2020"}, {"source": "P:TONY NORMAN HOGAN|13/02/1975", "target": "C:646656788", "type": "secretary_current", "appointed": "15/01/2024"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:682671861", "type": "director_current", "appointed": "27/11/2024"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:682671861", "type": "secretary_current", "appointed": "27/11/2024"}, {"source": "P:CHRISTINE AUDREY FRAZER|08/11/1968", "target": "C:682671861", "type": "secretary_current", "appointed": "27/11/2024"}, {"source": "P:ANDY GORAN OLSSON|11/03/1971", "target": "C:057588137", "type": "director_current", "appointed": "30/06/2011"}, {"source": "P:JOCHEN MICHAEL BETZ|13/02/1972", "target": "C:057588137", "type": "director_previous", "appointed": "24/11/2011", "ceased": "20/12/2018"}, {"source": "P:JORN BERTRAM|16/12/1976", "target": "C:057588137", "type": "director_previous", "appointed": "16/09/2014", "ceased": "20/12/2018"}, {"source": "P:WOLFGANG BILGER|21/02/1962", "target": "C:057588137", "type": "director_previous", "appointed": "30/06/2011", "ceased": "12/09/2014"}, {"source": "P:HELMUT JUNGBLUTH|13/02/1948", "target": "C:057588137", "type": "director_previous", "appointed": "30/06/2011", "ceased": "24/11/2011"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:057588137", "type": "director_previous", "appointed": "20/02/2001", "ceased": "30/06/2011"}, {"source": "P:ANDY GORAN OLSSON|11/03/1971", "target": "C:057588137", "type": "director_previous", "appointed": "12/01/2009", "ceased": "13/01/2009"}, {"source": "P:PHILLIP JOHN KIRBY|15/10/1950", "target": "C:057588137", "type": "director_previous", "appointed": "20/02/2001", "ceased": "19/02/2003"}, {"source": "P:ANDREW NEIL POWERS|14/02/1955", "target": "C:057588137", "type": "director_previous", "appointed": "08/05/2000", "ceased": "12/07/2002"}, {"source": "P:DONALD JAMES STEWART|20/02/1953", "target": "C:057588137", "type": "director_previous", "appointed": "09/04/2002", "ceased": "20/06/2002"}, {"source": "P:TIMOTHY ANDREW CRABTREE|20/08/1962", "target": "C:057588137", "type": "director_previous", "appointed": "25/06/1999", "ceased": "09/04/2002"}, {"source": "P:FRANCISCUS HENRICUS MARIA SIMONS|07/05/1946", "target": "C:057588137", "type": "director_previous", "appointed": "08/05/2000", "ceased": "20/02/2001"}, {"source": "P:WILLIAM MATTHEW MCLEAN|12/05/1959", "target": "C:057588137", "type": "director_previous", "appointed": "25/06/1999", "ceased": "29/01/2001"}, {"source": "P:ROBERT GIRVAN|16/08/1949", "target": "C:057588137", "type": "director_previous", "appointed": "24/09/1992", "ceased": "25/06/1999"}, {"source": "P:GRAEME JOHN TITCOMBE|02/10/1946", "target": "C:057588137", "type": "director_previous", "appointed": "24/09/1992", "ceased": "25/06/1999"}, {"source": "P:PETER JOHN EDWARDS|05/05/1958", "target": "C:057588137", "type": "director_previous", "appointed": "20/05/1998", "ceased": "14/01/1999"}, {"source": "P:LAURIE FRANK GEORGE HAINES|30/12/1941", "target": "C:057588137", "type": "director_previous", "appointed": "24/09/1992", "ceased": "21/06/1994"}, {"source": "P:PATRICK ALEXANDER MACKEY|31/10/1947", "target": "C:057588137", "type": "director_previous", "appointed": "03/12/2001", "ceased": "19/01/2005"}, {"source": "P:STUART MALCOLM ALLAN|27/12/1961", "target": "C:057588137", "type": "director_previous", "appointed": "25/06/1999", "ceased": "08/05/2000"}, {"source": "P:ADRIAN EDWARD STOKES|13/04/1952", "target": "C:057588137", "type": "director_previous", "appointed": "25/06/1999", "ceased": "15/12/1999"}, {"source": "P:DAVID LIONEL MACNAMARA|03/02/1971", "target": "C:057588137", "type": "secretary_current", "appointed": "04/02/2014"}, {"source": "P:TONY NORMAN HOGAN|13/02/1975", "target": "C:057588137", "type": "secretary_current", "appointed": "15/01/2024"}, {"source": "P:MICHAEL JOHN HAWORTH|26/03/1958", "target": "C:057588137", "type": "secretary_previous", "appointed": "19/09/2012", "ceased": "04/02/2014"}, {"source": "P:MICHAEL JAMES BURRIDGE|03/11/1965", "target": "C:057588137", "type": "secretary_previous", "appointed": "30/06/2011", "ceased": "17/09/2012"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:057588137", "type": "secretary_previous", "appointed": "20/02/2001", "ceased": "30/06/2011"}, {"source": "P:CHRISTINE AUDREY FRANCES FRAZER|08/11/1968", "target": "C:057588137", "type": "secretary_previous", "appointed": "01/05/2003", "ceased": "30/06/2011"}, {"source": "P:MARK JASON NORTHAGE|14/01/1961", "target": "C:057588137", "type": "secretary_previous", "appointed": "18/01/2008", "ceased": "30/06/2011"}, {"source": "P:PHILLIP JOHN KIRBY|15/10/1950", "target": "C:057588137", "type": "secretary_previous", "appointed": "19/01/2005", "ceased": "30/06/2011"}, {"source": "P:TRISHA GERRARD|05/12/1963", "target": "C:057588137", "type": "secretary_previous", "appointed": "20/02/2001", "ceased": "08/11/2010"}, {"source": "P:PHILIP JOHN COTTON|27/09/1960", "target": "C:057588137", "type": "secretary_previous", "appointed": "25/06/2001", "ceased": "25/07/2001"}, {"source": "P:STUART MALCOLM ALLAN|27/12/1961", "target": "C:057588137", "type": "secretary_previous", "appointed": "25/06/1999", "ceased": "08/05/2000"}, {"source": "P:PETER CLIFFORD PATRICK|20/02/1939", "target": "C:057588137", "type": "secretary_previous", "appointed": "14/01/1999", "ceased": "17/11/1999"}, {"source": "P:ROBERT GIRVAN|16/08/1949", "target": "C:057588137", "type": "secretary_previous", "appointed": "24/09/1992", "ceased": "25/06/1999"}, {"source": "P:GRAEME JOHN TITCOMBE|02/10/1946", "target": "C:057588137", "type": "secretary_previous", "appointed": "24/09/1992", "ceased": "25/06/1999"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:613302444", "type": "director_current", "appointed": "28/06/2016"}, {"source": "P:IAN DOUGLAS GEORGE|24/06/1950", "target": "C:613302444", "type": "secretary_current", "appointed": "28/06/2016"}, {"source": "P:CHRISTINE AUDREY FRANCES FRAZER|08/11/1968", "target": "C:613302444", "type": "secretary_current", "appointed": "28/06/2016"}, {"source": "P:OUJIN SHIM|23/08/1973", "target": "C:098273539", "type": "director_current", "appointed": "17/11/2023"}, {"source": "P:MICHAEL PETER REBELO|16/02/1973", "target": "C:098273539", "type": "director_current", "appointed": "29/03/2018"}, {"source": "P:LOUIS TOHME|14/04/1970", "target": "C:098273539", "type": "director_current", "appointed": "11/07/2024"}, {"source": "P:TEGUH PRENOTO CHEN|16/06/1969", "target": "C:098273539", "type": "director_previous", "appointed": "15/07/2014", "ceased": "11/07/2024"}, {"source": "P:LORIS PHILIPPE NOLD|10/11/1970", "target": "C:098273539", "type": "director_previous", "appointed": "15/07/2014", "ceased": "07/02/2024"}, {"source": "P:ANDREW MURRAY BAXTER|11/12/1967", "target": "C:098273539", "type": "director_previous", "appointed": "15/05/2014", "ceased": "29/03/2018"}, {"source": "P:ANN ELIZABETH GARREAUD|29/12/1963", "target": "C:098273539", "type": "director_previous", "appointed": "06/02/2013", "ceased": "15/07/2014"}, {"source": "P:JEAN-YVES NAOURI|19/11/1959", "target": "C:098273539", "type": "director_previous", "appointed": "05/12/2011", "ceased": "15/07/2014"}, {"source": "P:JOANNE ELIZABETH POLLARD|21/10/1965", "target": "C:098273539", "type": "director_previous", "appointed": "30/01/2013", "ceased": "31/05/2014"}, {"source": "P:ANDRE CLEMENT COSTE|12/01/1963", "target": "C:098273539", "type": "director_previous", "appointed": "24/12/2007", "ceased": "06/02/2013"}, {"source": "P:CRAIG DAVIS|29/01/1962", "target": "C:098273539", "type": "director_previous", "appointed": "27/03/2012", "ceased": "06/02/2013"}, {"source": "P:NICHOLAS ALEXANDER DAVIE|17/06/1957", "target": "C:098273539", "type": "director_previous", "appointed": "26/09/2001", "ceased": "16/12/2011"}, {"source": "P:RICHARD KEITH OTTON|16/01/1946", "target": "C:098273539", "type": "director_previous", "appointed": "30/03/2010", "ceased": "16/12/2011"}, {"source": "P:GRAEME HAROLD WILLS|20/05/1952", "target": "C:098273539", "type": "director_previous", "appointed": "30/03/2010", "ceased": "16/12/2011"}, {"source": "P:KEVIN BRUCE RAMSAY|17/12/1954", "target": "C:098273539", "type": "director_previous", "appointed": "30/03/2010", "ceased": "01/08/2011"}, {"source": "P:RICHARD CHARLES PINDER|25/04/1964", "target": "C:098273539", "type": "director_previous", "appointed": "24/12/2007", "ceased": "25/04/2011"}, {"source": "P:OLIVIER HENRI FLEUROT|06/09/1952", "target": "C:098273539", "type": "director_previous", "appointed": "24/12/2007", "ceased": "30/03/2010"}, {"source": "P:MATTHEW EDWARD GODFREY|03/07/1967", "target": "C:098273539", "type": "director_previous", "appointed": "12/03/2008", "ceased": "30/03/2010"}, {"source": "P:ANDRE PINTO|12/07/1963", "target": "C:098273539", "type": "director_previous", "appointed": "24/12/2007", "ceased": "12/03/2008"}, {"source": "P:HENRI RAYMOND|20/01/1980", "target": "C:098273539", "type": "secretary_current", "appointed": "12/01/2015"}, {"source": "P:STEPHEN GEORGE DEVENISH-MEARES|10/06/1962", "target": "C:098273539", "type": "secretary_previous", "appointed": "27/09/2010", "ceased": "12/01/2015"}, {"source": "P:LARS OSTERDAL|19/07/1957", "target": "C:098273539", "type": "secretary_previous", "appointed": "29/10/2007", "ceased": "27/09/2010"}, {"source": "P:DAVID MICHAEL GERRIE|20/01/1970", "target": "C:098273539", "type": "secretary_previous", "appointed": "31/03/2006", "ceased": "29/10/2007"}, {"source": "P:TIMOTHY FRANK LAING|03/05/1953", "target": "C:098273539", "type": "secretary_previous", "appointed": "26/09/2001", "ceased": "31/03/2006"}, {"source": "C:151341543", "target": "C:151341534", "type": "shareholder_current", "shares": 6400008, "beneficially": null}, {"source": "C:609647725", "target": "C:151341534", "type": "shareholder_current", "shares": 1600002, "beneficially": null}, {"source": "C:610283862", "target": "C:151341534", "type": "shareholder_previous", "shares": 5600007}, {"source": "C:110777118", "target": "C:151341534", "type": "shareholder_previous", "shares": 240821}, {"source": "C:613322179", "target": "C:637481399", "type": "shareholder_current", "shares": 1, "beneficially": null, "from_relational": true}, {"source": "C:613322197", "target": "C:637481399", "type": "shareholder_current", "shares": 1, "beneficially": null, "from_relational": true}, {"source": "C:613302426", "target": "C:613322197", "type": "shareholder_current", "shares": 1000, "beneficially": null, "from_relational": true}, {"source": "C:105262477", "target": "C:105262637", "type": "shareholder_current", "shares": 1, "beneficially": null, "from_relational": true}, {"source": "C:054912417", "target": "C:105262637", "type": "shareholder_previous", "shares": 1, "from_relational": true}, {"source": "C:105262637", "target": "C:106411072", "type": "shareholder_current", "shares": 25910000, "beneficially": null, "from_relational": true}, {"source": "C:010691531", "target": "C:106411072", "type": "shareholder_previous", "shares": 25910000}, {"source": "P:BRETT STEPHEN GEORGE|", "target": "C:613379052", "type": "shareholder_current", "shares": 10, "beneficially": null}, {"source": "C:054912417", "target": "C:105262477", "type": "shareholder_current", "shares": 29798002, "beneficially": null, "from_relational": true}, {"source": "P:IAN DOUGLAS GEORGE|", "target": "C:105262477", "type": "shareholder_current", "shares": null, "beneficially": null}, {"source": "P:IAN DOUGLAS GEORGE|", "target": "C:613302426", "type": "shareholder_current", "shares": 1, "beneficially": null}, {"source": "C:105262477", "target": "C:617534059", "type": "shareholder_current", "shares": 1, "beneficially": null, "from_relational": true}, {"source": "P:IAN DOUGLAS GEORGE|", "target": "C:054912417", "type": "shareholder_current", "shares": 6300, "beneficially": null}, {"source": "P:DONALD JAMES CLEARY|", "target": "C:054912417", "type": "shareholder_previous", "shares": 700}, {"source": "P:PETER ALLAN GRAHAM|", "target": "C:054912417", "type": "shareholder_previous", "shares": 700}, {"source": "P:NOEL JAMES GRIFFIN|", "target": "C:054912417", "type": "shareholder_previous", "shares": 700}, {"source": "P:JOHN CONRAD HANSEN|", "target": "C:054912417", "type": "shareholder_previous", "shares": 700}, {"source": "P:PETER FRANCIS KEDWELL|", "target": "C:054912417", "type": "shareholder_previous", "shares": 700}, {"source": "P:BEVAN THOMAS LYNCH|", "target": "C:054912417", "type": "shareholder_previous", "shares": 700}, {"source": "P:KEVIN WILLIAM PERKINS|", "target": "C:054912417", "type": "shareholder_previous", "shares": 700}, {"source": "P:PAUL ALAN WHITE|", "target": "C:054912417", "type": "shareholder_previous", "shares": 700}, {"source": "P:RICHARD SMITH|", "target": "C:625084077", "type": "shareholder_current", "shares": 40000, "beneficially": null}, {"source": "P:GUY BANDUCCI|", "target": "C:625084077", "type": "shareholder_current", "shares": 60000, "beneficially": null}, {"source": "P:MARK TKOCZ|", "target": "C:625084077", "type": "shareholder_current", "shares": 60000, "beneficially": null}, {"source": "C:613379052", "target": "C:625084077", "type": "shareholder_current", "shares": 7200000, "beneficially": null, "from_relational": true}, {"source": "C:606732692", "target": "C:625084077", "type": "shareholder_current", "shares": 300000, "beneficially": null}, {"source": "C:060772429", "target": "C:625084077", "type": "shareholder_current", "shares": 230140, "beneficially": null}, {"source": "C:169918049", "target": "C:625084077", "type": "shareholder_current", "shares": 4456385, "beneficially": null}, {"source": "C:637481399", "target": "C:625084077", "type": "shareholder_current", "shares": 5215475, "beneficially": null, "from_relational": true}, {"source": "P:MATTHEW JAMES GIBSON|", "target": "C:625084077", "type": "shareholder_previous", "shares": 100000}, {"source": "C:163170732", "target": "C:625084077", "type": "shareholder_previous", "shares": 100000}, {"source": "C:GARY NEVILLE MAGUIRE", "target": "C:625084077", "type": "shareholder_previous", "shares": 100000}, {"source": "C:618996848", "target": "C:625084077", "type": "shareholder_previous", "shares": 50000}, {"source": "C:010331843", "target": "C:625084077", "type": "shareholder_previous", "shares": 60000}, {"source": "P:JAMES KRUGER|", "target": "C:625084077", "type": "shareholder_previous", "shares": null}, {"source": "P:MIRANDA KRUGER|", "target": "C:625084077", "type": "shareholder_previous", "shares": 100000}, {"source": "P:DAVID FREDERICK OATLEY|", "target": "C:625084077", "type": "shareholder_previous", "shares": 80000}, {"source": "C:009970807", "target": "C:625084077", "type": "shareholder_previous", "shares": 100000}, {"source": "C:110961996", "target": "C:625084077", "type": "shareholder_previous", "shares": 100000}, {"source": "C:164515271", "target": "C:625084077", "type": "shareholder_previous", "shares": 100000}, {"source": "C:154897588", "target": "C:625084077", "type": "shareholder_previous", "shares": 100000}, {"source": "C:104461878", "target": "C:625084077", "type": "shareholder_previous", "shares": 100000}, {"source": "C:137965989", "target": "C:625084077", "type": "shareholder_previous", "shares": 40000}, {"source": "C:626527320", "target": "C:625084077", "type": "shareholder_previous", "shares": 250000}, {"source": "C:145668515", "target": "C:625084077", "type": "shareholder_previous", "shares": 70000}, {"source": "C:155979632", "target": "C:625084077", "type": "shareholder_previous", "shares": 40000}, {"source": "C:126137344", "target": "C:625084077", "type": "shareholder_previous", "shares": 20000}, {"source": "C:133513023", "target": "C:625084077", "type": "shareholder_previous", "shares": 100000}, {"source": "C:120853063", "target": "C:625084077", "type": "shareholder_previous", "shares": 100000}, {"source": "P:JOHN WARREN MCCORMACK|", "target": "C:625084077", "type": "shareholder_previous", "shares": null}, {"source": "P:MADONNA ELLEN MCCORMACK|", "target": "C:625084077", "type": "shareholder_previous", "shares": 100000}, {"source": "C:616053653", "target": "C:625084077", "type": "shareholder_previous", "shares": 2600000}, {"source": "C:MANFRED LAGEMANN", "target": "C:625084077", "type": "shareholder_previous", "shares": 300000}, {"source": "C:149079103", "target": "C:625084077", "type": "shareholder_previous", "shares": 100000}, {"source": "C:078957089", "target": "C:625084077", "type": "shareholder_previous", "shares": 200000}, {"source": "P:STEVEN MARC ROHLOFF|", "target": "C:625084077", "type": "shareholder_previous", "shares": 300000}, {"source": "C:604324334", "target": "C:625084077", "type": "shareholder_previous", "shares": 200000}, {"source": "C:613302444", "target": "C:613322179", "type": "shareholder_current", "shares": 1000, "beneficially": null, "from_relational": true}, {"source": "C:646656797", "target": "C:646656788", "type": "shareholder_current", "shares": 4800, "beneficially": null}, {"source": "C:125647592", "target": "C:646656788", "type": "shareholder_current", "shares": 4800, "beneficially": null}, {"source": "C:652125043", "target": "C:646656788", "type": "shareholder_current", "shares": 2400, "beneficially": null}, {"source": "C:609647725", "target": "C:646656788", "type": "shareholder_previous", "shares": 3600}, {"source": "C:613302426", "target": "C:682671861", "type": "shareholder_current", "shares": 1, "beneficially": null, "from_relational": true}, {"source": "C:613302444", "target": "C:682671861", "type": "shareholder_current", "shares": 1, "beneficially": null, "from_relational": true}, {"source": "C:151341534", "target": "C:057588137", "type": "shareholder_current", "shares": 5491037, "beneficially": null, "from_relational": true}, {"source": "C:106411072", "target": "C:057588137", "type": "shareholder_previous", "shares": 450001, "from_relational": true}, {"source": "C:010691531", "target": "C:057588137", "type": "shareholder_previous", "shares": 45001}, {"source": "C:054812994", "target": "C:057588137", "type": "shareholder_previous", "shares": 450001}, {"source": "P:ROBERT GIRVAN|", "target": "C:057588137", "type": "shareholder_previous", "shares": 1}, {"source": "P:IAN DOUGLAS GEORGE|", "target": "C:613302444", "type": "shareholder_current", "shares": 1, "beneficially": null}, {"source": "C:000026228", "target": "C:098273539", "type": "shareholder_current", "shares": 1, "beneficially": null}, {"source": "C:064907973", "target": "C:098273539", "type": "shareholder_previous", "shares": 1}, {"source": "C:151341543", "target": "C:151341534", "type": "uhc_current"}, {"source": "C:602550809", "target": "C:151341534", "type": "uhc_previous"}, {"source": "C:151341543", "target": "C:151341534", "type": "uhc_previous"}, {"source": "C:105262477", "target": "C:105262637", "type": "uhc_current", "from_relational": true}, {"source": "C:105262477", "target": "C:106411072", "type": "uhc_current", "from_relational": true}, {"source": "C:105262477", "target": "C:617534059", "type": "uhc_current"}, {"source": "C:151341543", "target": "C:057588137", "type": "uhc_current"}, {"source": "C:602550809", "target": "C:057588137", "type": "uhc_previous"}, {"source": "C:151341543", "target": "C:057588137", "type": "uhc_previous"}, {"source": "C:105262477", "target": "C:057588137", "type": "uhc_previous"}, {"source": "C:010690561", "target": "C:057588137", "type": "uhc_previous"}, {"source": "C:086364865", "target": "C:057588137", "type": "uhc_previous"}, {"source": "C:063970347", "target": "C:057588137", "type": "uhc_previous"}, {"source": "C:BIL INTERNATIONAL LIMITED", "target": "C:057588137", "type": "uhc_previous"}, {"source": "C:107891850", "target": "C:098273539", "type": "uhc_current"}, {"source": "C:613379052", "target": "C:622598270", "type": "shareholder_previous", "shares": 100, "from_relational": true}, {"source": "C:613379052", "target": "C:623746314", "type": "shareholder_previous", "shares": 25, "from_relational": true}, {"source": "C:613379052", "target": "C:624044793", "type": "shareholder_previous", "shares": 100, "from_relational": true}, {"source": "C:613379052", "target": "C:624360390", "type": "shareholder_previous", "shares": 102, "from_relational": true}, {"source": "C:613379052", "target": "C:624419147", "type": "shareholder_previous", "shares": 60, "from_relational": true}, {"source": "C:613379052", "target": "C:605720401", "type": "shareholder_previous", "shares": 250, "from_relational": true}, {"source": "C:613379052", "target": "C:602706043", "type": "shareholder_previous", "shares": 119, "from_relational": true}, {"source": "C:613379052", "target": "C:615672869", "type": "shareholder_previous", "shares": 84, "from_relational": true}, {"source": "C:613379052", "target": "C:133136400", "type": "shareholder_previous", "shares": 100, "from_relational": true}, {"source": "C:613379052", "target": "C:632191925", "type": "shareholder_previous", "shares": 495, "from_relational": true}, {"source": "C:613379052", "target": "C:632192360", "type": "shareholder_previous", "shares": 395, "from_relational": true}, {"source": "C:625084077", "target": "C:624360390", "type": "shareholder_current", "shares": 120, "from_relational": true}, {"source": "C:625084077", "target": "C:687125168", "type": "shareholder_current", "shares": 10, "from_relational": true}, {"source": "C:625084077", "target": "C:628889421", "type": "shareholder_previous", "shares": 120, "from_relational": true}, {"source": "C:625084077", "target": "C:628889449", "type": "shareholder_previous", "shares": 120, "from_relational": true}, {"source": "C:105262477", "target": "C:009689267", "type": "shareholder_previous", "shares": null, "from_relational": true}, {"source": "C:151341534", "target": "C:134376202", "type": "shareholder_previous", "shares": 70, "from_relational": true}, {"source": "C:105262637", "target": "C:608906458", "type": "shareholder_current", "shares": 4980, "from_relational": true}, {"source": "C:105262637", "target": "C:136499440", "type": "shareholder_current", "shares": 1160000, "from_relational": true}, {"source": "C:105262637", "target": "C:010690561", "type": "shareholder_previous", "shares": 2025002, "from_relational": true}, {"source": "C:613302444", "target": "C:626876122", "type": "shareholder_current", "shares": 1, "from_relational": true}, {"source": "C:613302444", "target": "C:641678864", "type": "shareholder_current", "shares": 1, "from_relational": true}, {"source": "C:613302444", "target": "C:667545299", "type": "shareholder_current", "shares": 1, "from_relational": true}, {"source": "C:613302444", "target": "C:669692424", "type": "shareholder_current", "shares": 1, "from_relational": true}, {"source": "C:613302444", "target": "C:669694008", "type": "shareholder_current", "shares": 1, "from_relational": true}, {"source": "C:613302444", "target": "C:671747069", "type": "shareholder_current", "shares": 1, "from_relational": true}, {"source": "C:613302444", "target": "C:677603593", "type": "shareholder_current", "shares": 1, "from_relational": true}, {"source": "C:613302444", "target": "C:676321190", "type": "shareholder_current", "shares": 1, "from_relational": true}, {"source": "C:054912417", "target": "C:142084302", "type": "shareholder_current", "shares": 10000001, "from_relational": true}, {"source": "C:054912417", "target": "C:605337148", "type": "shareholder_current", "shares": 1000, "from_relational": true}, {"source": "C:054912417", "target": "C:010690561", "type": "shareholder_previous", "shares": 2025002, "from_relational": true}, {"source": "C:054912417", "target": "C:009689267", "type": "shareholder_previous", "shares": null, "from_relational": true}, {"source": "C:054912417", "target": "C:612029115", "type": "shareholder_previous", "shares": 90, "from_relational": true}, {"source": "C:682671861", "target": "C:682673114", "type": "shareholder_current", "shares": 2, "from_relational": true}, {"source": "C:682671861", "target": "C:687870524", "type": "shareholder_current", "shares": 2, "from_relational": true}, {"source": "C:637481399", "target": "C:644192030", "type": "shareholder_current", "shares": 250, "from_relational": true}, {"source": "C:637481399", "target": "C:632191925", "type": "shareholder_previous", "shares": 43520, "from_relational": true}, {"source": "C:057588137", "target": "C:112785510", "type": "shareholder_current", "shares": 1, "from_relational": true}, {"source": "C:613302426", "target": "C:626876131", "type": "shareholder_current", "shares": 1, "from_relational": true}, {"source": "C:613302426", "target": "C:641678864", "type": "shareholder_current", "shares": 1, "from_relational": true}, {"source": "C:613302426", "target": "C:667545299", "type": "shareholder_current", "shares": 1, "from_relational": true}, {"source": "C:613302426", "target": "C:669692424", "type": "shareholder_current", "shares": 1, "from_relational": true}, {"source": "C:613302426", "target": "C:669694008", "type": "shareholder_current", "shares": 1, "from_relational": true}, {"source": "C:613302426", "target": "C:671747069", "type": "shareholder_current", "shares": 1, "from_relational": true}, {"source": "C:613302426", "target": "C:677603593", "type": "shareholder_current", "shares": 1, "from_relational": true}, {"source": "C:098273539", "target": "B:PUBLICIS PERSONALISED PLATES", "type": "trades_as", "from": "2017-06-02"}, {"source": "C:098273539", "target": "B:N2N COMMUNICATIONS-HERD MSL", "type": "trades_as", "from": "2021-10-29"}, {"source": "C:098273539", "target": "B:HMSL PR", "type": "trades_as", "from": "2025-07-03"}, {"source": "C:105262637", "target": "B:ACT PLATES", "type": "trades_as", "from": "2013-07-04"}, {"source": "C:105262637", "target": "B:PLATES WEST", "type": "trades_as", "from": "2013-07-04"}, {"source": "C:DEPT_OF_STATE_GROWTH_TAS", "target": "B:TASPLATES", "type": "trades_as", "from": "2017-11-13"}, {"source": "C:142084302", "target": "S:MYPLATES", "type": "concession_current", "awarded": "2010-10-01", "value": "$45.5M/yr", "contract": "NSW Special Number Plate Concession (Cl.33, Road Transport Reg 2017)"}, {"source": "C:105262637", "target": "B:TASPLATES", "type": "concession_current", "awarded": "2023-01-13", "expires": "2027-11-30", "value": "$7,144,883", "contract": "TasTenders 11285 \u2014 Marketing & Management of Personalised Plates"}, {"source": "C:098273539", "target": "S:PPQ", "type": "concession_current", "value": "~$67M (2022)", "contract": "QLD PPQ scheme management (Publicis Red Lion)"}, {"source": "C:657005439", "target": "S:VPLATES", "type": "concession_current", "awarded": "2022-06-29", "expires": "~2062", "contract": "40-year VicRoads JV concession"}, {"source": "C:TFNSW", "target": "S:MYPLATES", "type": "principal_of"}, {"source": "C:QLD_TMR", "target": "S:PPQ", "type": "principal_of"}, {"source": "C:DEPT_OF_STATE_GROWTH_TAS", "target": "B:TASPLATES", "type": "principal_of", "note": "DSG also holds TasPlates as a registered business name (ABN 36 388 980 563) since 2017-11-13"}, {"source": "C:VIC_GOVT", "target": "S:VPLATES", "type": "principal_of", "note": "Minority JV partner via CP Services Victoria"}, {"source": "C:057588137", "target": "C:TFNSW", "type": "manufacturing_current", "value": "undisclosed", "contract": "NSW general issue plate manufacturing (pre-2019, RMS-era)"}, {"source": "C:057588137", "target": "S:MYPLATES", "type": "manufacturing_current", "contract": "Sub-contract under myPlates concession"}, {"source": "C:057588137", "target": "C:DEPT_OF_STATE_GROWTH_TAS", "type": "manufacturing_current", "awarded": "2024-12-10", "expires": "2029-06-30", "value": "$3,983,936", "contract": "TasTenders 12795 \u2014 Production & Supply of Registration Number Plates"}, {"source": "C:057588137", "target": "C:QLD_TMR", "type": "manufacturing_current", "awarded": "2021-11-25", "expires": "~2026-2028", "value": "$65,012,800", "contract": "TMR04220 \u2014 Manufacture, design & distribution of number plates"}, {"source": "C:057588137", "target": "C:CMTEDD_ACT", "type": "manufacturing_current", "awarded": "2014-02-24", "expires": "2029-01-31", "value": "$24,451,420", "contract": "Contract 2013.22070.210 \u2014 Manufacture of ACT Vehicle Registration Number Plates"}, {"source": "C:057588137", "target": "C:DIT_SA", "type": "manufacturing_current", "value": "$35,426,560", "contract": "SA Supply of Number Plates for Motor Vehicles"}, {"source": "C:057588137", "target": "C:DIPL_NT", "type": "manufacturing_current", "value": "$2.2M combined", "contract": "Q22-0176 + A21-0087 (incl. Alice Springs prison manufacturing equipment)"}, {"source": "C:057588137", "target": "C:WA_DOT", "type": "manufacturing_current", "awarded": "2020-02", "expires": "2032", "value": "$38,000,000", "contract": "WA Supply of Vehicle Number Plates \u2014 final extension"}, {"source": "C:057588137", "target": "S:VPLATES", "type": "manufacturing_current", "contract": "Sub-contract within CP Services Victoria JV"}], "stats": {"total_nodes": 202, "total_edges": 301, "companies_subject": 17, "companies_external": 76, "people": 91, "business_names": 6, "schemes": 4, "principals": 8, "concession_contracts": 4, "manufacturing_contracts": 9}, "multi_board": [{"person": "P:IAN DOUGLAS GEORGE|24/06/1950", "label": "IAN DOUGLAS GEORGE", "companies": ["HARRINGE PTY LTD", "LICENSYS PTY LTD", "GEORGE INDUSTRIES PTY LTD", "PLATE IMPRESSIONS PTY LTD", "PLATE HOLDINGS PTY LTD", "LICENSYS AUSTRALASIA PTY LTD", "DEVONSHIRE SQUARE PTY LTD", "LACHANCE PTY LTD", "AVENIR INITIATIVE PTY LTD", "WILHELMINA INVESTMENTS PTY LTD", "PLATO PROPERTIES PTY LTD", "QANA INVESTMENTS PTY LTD", "LICENSYS PROPERTIES PTY LTD", "PLATO INDUSTRIES PTY LTD"]}, {"person": "P:ANDERS RUNE ERIKSSON|26/06/1965", "label": "ANDERS RUNE ERIKSSON", "companies": ["LICENSYS AUSTRALASIA PTY LTD", "LICENSYS PROPERTIES PTY LTD"]}, {"person": "P:ANDY GORAN OLSSON|11/03/1971", "label": "ANDY GORAN OLSSON", "companies": ["LICENSYS PTY LTD", "LICENSYS AUSTRALASIA PTY LTD", "LICENSYS PROPERTIES PTY LTD"]}, {"person": "P:JORN BERTRAM|16/12/1976", "label": "JORN BERTRAM", "companies": ["LICENSYS PTY LTD", "LICENSYS AUSTRALASIA PTY LTD"]}, {"person": "P:JOCHEN MICHAEL BETZ|13/02/1972", "label": "JOCHEN MICHAEL BETZ", "companies": ["LICENSYS PTY LTD", "LICENSYS AUSTRALASIA PTY LTD"]}, {"person": "P:HELMUT JUNGBLUTH|13/02/1948", "label": "HELMUT JUNGBLUTH", "companies": ["LICENSYS PTY LTD", "LICENSYS AUSTRALASIA PTY LTD"]}, {"person": "P:WOLFGANG BILGER|21/02/1962", "label": "WOLFGANG BILGER", "companies": ["LICENSYS PTY LTD", "LICENSYS AUSTRALASIA PTY LTD"]}, {"person": "P:DAVID LIONEL MACNAMARA|03/02/1971", "label": "DAVID LIONEL MACNAMARA", "companies": ["LICENSYS PTY LTD", "LICENSYS AUSTRALASIA PTY LTD", "LICENSYS PROPERTIES PTY LTD"]}, {"person": "P:TONY NORMAN HOGAN|13/02/1975", "label": "TONY NORMAN HOGAN", "companies": ["LICENSYS PTY LTD", "LICENSYS AUSTRALASIA PTY LTD", "LICENSYS PROPERTIES PTY LTD"]}, {"person": "P:MICHAEL JOHN HAWORTH|26/03/1958", "label": "MICHAEL JOHN HAWORTH", "companies": ["LICENSYS PTY LTD", "LICENSYS AUSTRALASIA PTY LTD"]}, {"person": "P:MICHAEL JAMES BURRIDGE|03/11/1965", "label": "MICHAEL JAMES BURRIDGE", "companies": ["LICENSYS PTY LTD", "LICENSYS AUSTRALASIA PTY LTD"]}, {"person": "P:CHRISTINE AUDREY FRAZER|08/11/1968", "label": "CHRISTINE AUDREY FRAZER", "companies": ["GEORGE INDUSTRIES PTY LTD", "PLATO PROPERTIES PTY LTD", "QANA INVESTMENTS PTY LTD", "PLATO INDUSTRIES PTY LTD"]}, {"person": "P:CHRISTINE AUDREY FRANCES FRAZER|08/11/1968", "label": "CHRISTINE AUDREY FRANCES FRAZER", "companies": ["HARRINGE PTY LTD", "LICENSYS PTY LTD", "PLATE IMPRESSIONS PTY LTD", "PLATE HOLDINGS PTY LTD", "DEVONSHIRE SQUARE PTY LTD", "LACHANCE PTY LTD", "AVENIR INITIATIVE PTY LTD", "WILHELMINA INVESTMENTS PTY LTD"]}, {"person": "P:DAVID ROGER MILLER|11/10/1946", "label": "DAVID ROGER MILLER", "companies": ["GEORGE INDUSTRIES PTY LTD", "PLATE IMPRESSIONS PTY LTD"]}, {"person": "P:PHILLIP JOHN KIRBY|15/10/1950", "label": "PHILLIP JOHN KIRBY", "companies": ["HARRINGE PTY LTD", "LICENSYS PTY LTD", "GEORGE INDUSTRIES PTY LTD", "PLATE IMPRESSIONS PTY LTD", "PLATE HOLDINGS PTY LTD"]}, {"person": "P:MARK JASON NORTHAGE|14/01/1961", "label": "MARK JASON NORTHAGE", "companies": ["HARRINGE PTY LTD", "LICENSYS PTY LTD", "GEORGE INDUSTRIES PTY LTD", "PLATE IMPRESSIONS PTY LTD", "PLATE HOLDINGS PTY LTD"]}, {"person": "P:TRISHA GERRARD|05/12/1963", "label": "TRISHA GERRARD", "companies": ["HARRINGE PTY LTD", "LICENSYS PTY LTD", "GEORGE INDUSTRIES PTY LTD", "PLATE IMPRESSIONS PTY LTD", "PLATE HOLDINGS PTY LTD"]}, {"person": "P:BRETT STEPHEN GEORGE|25/02/1979", "label": "BRETT STEPHEN GEORGE", "companies": ["FUTURE PATRIOT GROUP PTY LTD", "HANDEL GROUP PTY LTD"]}]};
+
+// populate stats
+document.getElementById('statSub').textContent = GRAPH.stats.companies_subject;
+document.getElementById('statExt').textContent = GRAPH.stats.companies_external;
+document.getElementById('statPrin').textContent = GRAPH.stats.principals;
+document.getElementById('statSch').textContent = GRAPH.stats.schemes;
+document.getElementById('statBn').textContent = GRAPH.stats.business_names;
+document.getElementById('statPpl').textContent = GRAPH.stats.people;
+document.getElementById('statRel').textContent = GRAPH.stats.total_edges;
+
+const svg = d3.select('#graph');
+const width = () => window.innerWidth - 340 - 380;
+const height = () => window.innerHeight;
+svg.attr('width', width()).attr('height', height());
+
+const zoomG = svg.append('g');
+const zoom = d3.zoom().scaleExtent([0.1, 5]).on('zoom', (e) => zoomG.attr('transform', e.transform));
+svg.call(zoom);
+
+const edgeColors = {
+  director_current: '#f778ba',
+  director_previous: '#8957e5',
+  shareholder_current: '#3fb950',
+  shareholder_previous: '#2da44e',
+  uhc_current: '#f0883e',
+  uhc_previous: '#f0883e',
+  secretary_current: '#79c0ff',
+  secretary_previous: '#388bfd',
+  trades_as: '#ffd166',
+  concession_current: '#e04aa8',
+  manufacturing_current: '#1fab9b',
+  principal_of: '#4ae0e0',
+};
+const defs = svg.append('defs');
+Object.entries(edgeColors).forEach(([type, color]) => {
+  defs.append('marker')
+    .attr('id', 'arrow-' + type)
+    .attr('viewBox', '0 -5 10 10')
+    .attr('refX', 18)
+    .attr('refY', 0)
+    .attr('markerWidth', 6)
+    .attr('markerHeight', 6)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M0,-5L10,0L0,5')
+    .attr('fill', color);
+});
+
+const nodeColor = (n) => {
+  if (n.type === 'company_subject') return '#58a6ff';
+  if (n.type === 'company_external') return '#f0883e';
+  if (n.type === 'business_name') return '#ffd166';
+  if (n.type === 'scheme') return '#5fd6c8';
+  if (n.type === 'principal') return '#4ae0e0';
+  return '#d2a8ff';
+};
+
+const degree = {};
+GRAPH.edges.forEach(e => {
+  degree[e.source] = (degree[e.source] || 0) + 1;
+  degree[e.target] = (degree[e.target] || 0) + 1;
+});
+const nodeR = (n) => {
+  if (n.type === 'business_name') return 6;
+  if (n.type === 'scheme') return 9;
+  if (n.type === 'principal') return 9;
+  return 5 + Math.min(12, Math.sqrt(degree[n.id] || 1) * 2);
+};
+
+let allNodes = GRAPH.nodes.map(d => ({...d}));
+let allEdges = GRAPH.edges.map(d => ({...d}));
+let visibleEdgeTypes = new Set([
+  'director_current','shareholder_current','uhc_current',
+  'trades_as','concession_current','manufacturing_current','principal_of'
+]);
+
+let currentEdges = allEdges.filter(e => visibleEdgeTypes.has(e.type));
+
+const simulation = d3.forceSimulation(allNodes)
+  .force('link', d3.forceLink(currentEdges).id(d => d.id)
+    .distance(d => {
+      if (d.type === 'trades_as') return 50;
+      if (d.type === 'principal_of') return 70;
+      if (d.type === 'concession_current') return 110;
+      if (d.type === 'manufacturing_current') return 140;
+      return 90;
+    })
+    .strength(0.45))
+  .force('charge', d3.forceManyBody().strength(-280))
+  .force('center', d3.forceCenter(width()/2, height()/2))
+  .force('collide', d3.forceCollide().radius(d => nodeR(d) + 5));
+
+const linkG = zoomG.append('g');
+const nodeG = zoomG.append('g');
+
+let linkSel, nodeSel;
+
+function render() {
+  linkSel = linkG.selectAll('line').data(currentEdges, d => d.source.id + '->' + d.target.id + ':' + d.type);
+  linkSel.exit().remove();
+  linkSel = linkSel.enter().append('line')
+    .attr('class', d => 'link ' + d.type)
+    .attr('stroke', d => edgeColors[d.type] || '#6e7681')
+    .attr('stroke-width', d => d.type === 'concession_current' ? 2.5 : (d.type === 'manufacturing_current' ? 2 : 1.5))
+    .attr('marker-end', d => 'url(#arrow-' + d.type + ')')
+    .merge(linkSel);
+
+  nodeSel = nodeG.selectAll('g.node').data(allNodes, d => d.id);
+  const nEnter = nodeSel.enter().append('g').attr('class', 'node')
+    .call(d3.drag()
+      .on('start', (e, d) => { if (!e.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on('end', (e, d) => { if (!e.active) simulation.alphaTarget(0); if (!freezeLayout) { d.fx = null; d.fy = null; } })
+    )
+    .on('click', (e, d) => { e.stopPropagation(); selectNode(d); });
+
+  nEnter.each(function(d) {
+    const sel = d3.select(this);
+    const r = nodeR(d);
+    if (d.type === 'business_name') {
+      // small diamond
+      sel.append('rect').attr('x', -r).attr('y', -r).attr('width', r*2).attr('height', r*2)
+        .attr('transform', 'rotate(45)').attr('fill', nodeColor(d));
+    } else if (d.type === 'scheme') {
+      // larger teal diamond
+      sel.append('rect').attr('x', -r).attr('y', -r).attr('width', r*2).attr('height', r*2)
+        .attr('transform', 'rotate(45)').attr('fill', nodeColor(d));
+    } else if (d.type === 'principal') {
+      // square (axis-aligned) — government bodies
+      sel.append('rect').attr('x', -r).attr('y', -r).attr('width', r*2).attr('height', r*2)
+        .attr('rx', 2).attr('fill', nodeColor(d));
+    } else {
+      sel.append('circle').attr('r', r).attr('fill', nodeColor(d));
+    }
+  });
+
+  nEnter.append('title').text(d => d.label + (d.acn ? ' (ACN ' + d.acn + ')' : '') +
+    (d.type === 'scheme' ? ' [scheme]' : (d.type === 'principal' ? ' [govt principal]' : (d.type === 'business_name' ? ' [business name]' : ''))));
+  nEnter.append('text')
+    .attr('x', d => nodeR(d) + 3)
+    .attr('y', 3)
+    .attr('font-style', d => (d.type === 'business_name' || d.type === 'scheme') ? 'italic' : 'normal')
+    .attr('font-weight', d => (d.type === 'scheme' || d.type === 'principal') ? '600' : 'normal')
+    .text(d => (d.label || '').length > 32 ? d.label.slice(0, 30) + '…' : d.label);
+  nodeSel = nEnter.merge(nodeSel);
+
+  simulation.nodes(allNodes);
+  simulation.force('link').links(currentEdges);
+  simulation.alpha(0.5).restart();
+}
+
+simulation.on('tick', () => {
+  if (linkSel) {
+    linkSel
+      .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+  }
+  if (nodeSel) nodeSel.attr('transform', d => 'translate(' + d.x + ',' + d.y + ')');
+});
+
+render();
+
+document.querySelectorAll('.filter-toggle input').forEach(cb => {
+  cb.addEventListener('change', () => {
+    const t = cb.dataset.etype;
+    if (cb.checked) visibleEdgeTypes.add(t); else visibleEdgeTypes.delete(t);
+    currentEdges = allEdges.filter(e => visibleEdgeTypes.has(e.type));
+    render();
+  });
+});
+
+let selectedId = null;
+function selectNode(n) {
+  selectedId = n.id;
+  nodeG.selectAll('g.node').classed('selected', d => d.id === n.id);
+  linkG.selectAll('line')
+    .classed('faded', d => !(d.source.id === n.id || d.target.id === n.id))
+    .classed('highlighted', d => d.source.id === n.id || d.target.id === n.id);
+  nodeG.selectAll('g.node').classed('muted', d => {
+    if (d.id === n.id) return false;
+    return !currentEdges.some(e => (e.source.id === n.id && e.target.id === d.id) || (e.target.id === n.id && e.source.id === d.id));
+  });
+  renderDetails(n);
+}
+
+svg.on('click', () => {
+  selectedId = null;
+  linkG.selectAll('line').classed('faded', false).classed('highlighted', false);
+  nodeG.selectAll('g.node').classed('muted', false).classed('selected', false);
+  document.getElementById('detail').innerHTML = '<div class="subtle">Click a node to see details.</div>';
+});
+
+function typeTag(t) {
+  if (t === 'company_subject') return ['subject','subject'];
+  if (t === 'company_external') return ['external','external'];
+  if (t === 'business_name') return ['business_name','trading name'];
+  if (t === 'scheme') return ['scheme','scheme'];
+  if (t === 'principal') return ['principal','govt principal'];
+  return ['person','person'];
+}
+
+function renderDetails(n) {
+  const box = document.getElementById('detail');
+  const incoming = GRAPH.edges.filter(e => e.target === n.id || (e.target && e.target.id === n.id));
+  const outgoing = GRAPH.edges.filter(e => e.source === n.id || (e.source && e.source.id === n.id));
+  const [cls, lbl] = typeTag(n.type);
+  let html = '<h3>' + n.label + ' <span class="tag ' + cls + '">' + lbl + '</span></h3>';
+  if (n.acn) html += '<div class="detail-row"><span class="k">ACN</span>' + n.acn + '</div>';
+  if (n.abn) html += '<div class="detail-row"><span class="k">ABN</span>' + n.abn + '</div>';
+  if (n.registered_in) html += '<div class="detail-row"><span class="k">State</span>' + n.registered_in + '</div>';
+  if (n.registration_date) html += '<div class="detail-row"><span class="k">Since</span>' + n.registration_date + '</div>';
+  if (n.from) html += '<div class="detail-row"><span class="k">Registered</span>' + n.from + '</div>';
+  if (n.status) html += '<div class="detail-row"><span class="k">Status</span>' + n.status + '</div>';
+  if (n.address) html += '<div class="detail-row"><span class="k">Address</span>' + n.address + '</div>';
+  if (n.dob) html += '<div class="detail-row"><span class="k">Born</span>' + n.dob + ' ' + (n.born_place || '') + '</div>';
+  if (n.note) html += '<div class="callout warn" style="margin-top:6px;">' + n.note + '</div>';
+  if (n.scheme_note) html += '<div class="callout conc" style="margin-top:6px;">' + n.scheme_note + '</div>';
+  if (n.former_names && n.former_names.length) {
+    html += '<h2>Former names</h2><ul>';
+    n.former_names.forEach(fn => html += '<li>' + fn + '</li>');
+    html += '</ul>';
+  }
+  if (outgoing.length) {
+    html += '<h2>Outgoing (' + outgoing.length + ')</h2><div class="edge-list">';
+    outgoing.forEach(e => {
+      const tId = (e.target.id || e.target);
+      const target = GRAPH.nodes.find(x => x.id === tId);
+      if (!target) return;
+      html += '<div class="edge-item ' + e.type + '">' +
+        '<div><span class="lbl" data-id="' + target.id + '">' + target.label + '</span></div>' +
+        '<div class="meta">' + relationshipLabel(e, true) + '</div></div>';
+    });
+    html += '</div>';
+  }
+  if (incoming.length) {
+    html += '<h2>Incoming (' + incoming.length + ')</h2><div class="edge-list">';
+    incoming.forEach(e => {
+      const sId = (e.source.id || e.source);
+      const source = GRAPH.nodes.find(x => x.id === sId);
+      if (!source) return;
+      html += '<div class="edge-item ' + e.type + '">' +
+        '<div><span class="lbl" data-id="' + source.id + '">' + source.label + '</span></div>' +
+        '<div class="meta">' + relationshipLabel(e, false) + '</div></div>';
+    });
+    html += '</div>';
+  }
+  box.innerHTML = html;
+  box.querySelectorAll('.lbl[data-id]').forEach(el => {
+    el.addEventListener('click', () => {
+      const target = allNodes.find(x => x.id === el.dataset.id);
+      if (target) selectNode(target);
+    });
+  });
+}
+
+function relationshipLabel(e, outgoing) {
+  const labels = {
+    director_current: outgoing ? 'Director of' : 'Has director',
+    director_previous: outgoing ? 'Former director of' : 'Had director',
+    secretary_current: outgoing ? 'Secretary of' : 'Has secretary',
+    secretary_previous: outgoing ? 'Former secretary of' : 'Had secretary',
+    shareholder_current: outgoing ? 'Shareholder of' : 'Has shareholder',
+    shareholder_previous: outgoing ? 'Former shareholder of' : 'Had shareholder',
+    uhc_current: outgoing ? 'Ultimate holding of' : 'Held by',
+    uhc_previous: outgoing ? 'Former UHC of' : 'Previously held by',
+    trades_as: outgoing ? 'Trades as / registered BN holder of' : 'Registered business name of',
+    concession_current: outgoing ? 'CONCESSIONAIRE — runs scheme' : 'Operated under concession by',
+    manufacturing_current: outgoing ? 'MANUFACTURES plates for' : 'Plates manufactured by',
+    principal_of: outgoing ? 'PRINCIPAL — owns scheme' : 'Principal body',
+  };
+  let s = labels[e.type] || e.type;
+  const meta = [];
+  if (e.shares) meta.push(e.shares.toLocaleString() + ' shares');
+  if (e.appointed) meta.push('appt ' + e.appointed);
+  if (e.ceased) meta.push('ceased ' + e.ceased);
+  if (e.awarded) meta.push('awarded ' + e.awarded);
+  if (e.expires) meta.push('expires ' + e.expires);
+  if (e.value) meta.push(e.value);
+  if (e.contract) meta.push(e.contract);
+  if (e.from && e.type === 'trades_as') meta.push('since ' + e.from);
+  if (meta.length) s += ' · ' + meta.join(' · ');
+  return s;
+}
+
+const searchInput = document.getElementById('search');
+const searchBox = document.getElementById('searchResults');
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.trim().toLowerCase();
+  if (!q) { searchBox.style.display = 'none'; return; }
+  const matches = allNodes.filter(n => (n.label || '').toLowerCase().includes(q) || (n.acn || '').includes(q) || (n.abn || '').includes(q)).slice(0, 30);
+  if (!matches.length) { searchBox.style.display = 'none'; return; }
+  searchBox.innerHTML = matches.map(n => {
+    const [cls, lbl] = typeTag(n.type);
+    return '<div class="search-result" data-id="' + n.id + '"><span class="name">' + n.label + '</span><span class="tag ' + cls + '">' + lbl + '</span></div>';
+  }).join('');
+  searchBox.style.display = 'block';
+  searchBox.querySelectorAll('.search-result').forEach(el => {
+    el.addEventListener('click', () => {
+      const target = allNodes.find(x => x.id === el.dataset.id);
+      if (target) { selectNode(target); centerOn(target); searchBox.style.display = 'none'; }
+    });
+  });
+});
+
+function centerOn(n) {
+  const w = width(), h = height();
+  const scale = 1.4;
+  const t = d3.zoomIdentity.translate(w/2 - n.x*scale, h/2 - n.y*scale).scale(scale);
+  svg.transition().duration(600).call(zoom.transform, t);
+}
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  svg.transition().duration(600).call(zoom.transform, d3.zoomIdentity);
+  simulation.alpha(0.6).restart();
+});
+let freezeLayout = false;
+document.getElementById('btnFreeze').addEventListener('click', (e) => {
+  freezeLayout = !freezeLayout;
+  e.target.textContent = freezeLayout ? 'Unfreeze' : 'Freeze layout';
+  if (freezeLayout) {
+    allNodes.forEach(d => { d.fx = d.x; d.fy = d.y; });
+  } else {
+    allNodes.forEach(d => { d.fx = null; d.fy = null; });
+    simulation.alpha(0.4).restart();
+  }
+});
+
+window.addEventListener('resize', () => {
+  svg.attr('width', width()).attr('height', height());
+  simulation.force('center', d3.forceCenter(width()/2, height()/2));
+  simulation.alpha(0.2).restart();
+});
+</script>
+</body>
+</html>
