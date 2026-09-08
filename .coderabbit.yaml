@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# This repository does not use CodeRabbit, and should not.
+#
+# CodeRabbit is installed across the todd-studio organisation with access to
+# every repository, so without this file it reviews these pull requests
+# automatically on the Organization UI defaults. Nothing here is gated on that
+# review, and the hourly review allowance is counted per developer identity
+# rather than per repository — so an automatic review here is spent out of the
+# same allowance the repositories that are gated on it need.
+#
+# A review is still available on demand: comment "@coderabbitai review" on a
+# pull request.
+#
+# Everything below is switched off explicitly rather than left unset, because
+# CodeRabbit does not merge configuration sources unless `inheritance` is on:
+# this file replaces the Organization UI settings outright, and any key absent
+# from it falls back to the *schema default*, not to whatever the UI had. Most
+# of these default to true, so an opt-out that only disabled auto-review would
+# leave this repository with a more capable CodeRabbit than the repositories
+# that actually use it.
+
+reviews:
+  auto_review:
+    enabled: false
+  review_status: false
+  # Two keyword triggers that fire independently of auto_review: a pull request
+  # whose title contains `@coderabbitai` is retitled, and a description
+  # containing `@coderabbitai summary` still gets a generated summary even when
+  # high_level_summary is off. Easy to trip accidentally on a pull request that
+  # is *about* CodeRabbit, which is exactly what this one is. They are set to an
+  # inert sentinel rather than "" because the empty-string behaviour is
+  # undocumented, and "" is a substring of every title — if it matched rather
+  # than disabled, it would retitle everything.
+  auto_title_placeholder: "coderabbit-auto-title-disabled-in-this-repository"
+  high_level_summary_placeholder: "coderabbit-summary-disabled-in-this-repository"
+
+  # Both status surfaces off. A skipped review still posts `success` — that is
+  # how miro-docs #6 came back `success: Review skipped: reviews are disabled
+  # for this base branch`. In a repository nothing gates on, a green tick that
+  # means "did not review" is worse than no tick, because it reads as review to
+  # anyone glancing at the pull request. An on-demand review still posts its
+  # walkthrough and comments, which is the part worth reading.
+  review_progress: false
+  commit_status: false
+
+  # Acts on pull requests independently of auto_review.
+  slop_detection:
+    enabled: false
+
+  # These run automatically on every pull request and default to `warning`
+  # (docs.coderabbit.ai/pr-reviews/pre-merge-checks). Disabling auto-review
+  # does not stop them.
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+    title:
+      mode: "off"
+    description:
+      mode: "off"
+    issue_assessment:
+      mode: "off"
+  # Default true except simplify. Each is triggered by a checkbox or an
+  # @coderabbitai command, and each can write to the branch or open a pull
+  # request — not something a repository that has opted out should offer.
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false
+    simplify:
+      enabled: false
+    autofix:
+      enabled: false
+    fix_ci:
+      enabled: false
+    resolve_merge_conflict:
+      enabled: false
+
+chat:
+  auto_reply: false
+  # Default true. These repositories are private; nobody outside the
+  # organisation should be able to drive CodeRabbit in them.
+  allow_non_org_members: false
+
+issue_enrichment:
+  # Default true: generates an implementation plan on issues opened here.
+  planning:
+    enabled: false
